@@ -15,10 +15,11 @@ spec:
         app: pippaothy
     spec:
       containers:
-      - name: nginx
-        image: nginx:latest
+      - name: pippaothy
+        image: julianone/pippaothy:latest 
         ports:
-        - containerPort: 80
+        - containerPort: 8080  
+        imagePullPolicy: Always
 
 ---
 apiVersion: v1
@@ -32,5 +33,5 @@ spec:
   ports:
     - protocol: TCP
       port: 80 # External port
-      targetPort: 80 # Container port
+      targetPort: 8080 # Container port
 
