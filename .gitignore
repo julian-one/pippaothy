@@ -1,0 +1,11 @@
+/tmp/
+*.log
+*.swp
+
+# Ignore generated Go files
+templates/*.go
+!templates/*.templ
+
+# OS-specific files
+.DS_Store
+
