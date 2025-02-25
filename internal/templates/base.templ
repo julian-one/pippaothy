@@ -1,0 +1,34 @@
+package templates
+
+templ header(title string) {
+
+<head>
+	<title>{ title }</title>
+	<meta charset="UTF-8" />
+	<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+	<link rel="stylesheet" href="/static/css/output.css" />
+</head>
+}
+
+templ nav() {
+<nav class="bg-white bg-opacity-80 backdrop-blur-sm p-4 shadow-md font-poppins">
+	<div class="container mx-auto flex justify-between items-center">
+		<div class="text-[#e76f00] text-xl font-bold uppercase">Pippaothy</div>
+		<div class="space-x-4">
+			<a class="text-gray-800 hover:text-gray-600" href="/login">Login</a>
+		</div>
+	</div>
+</nav>
+}
+
+templ Layout(contents templ.Component, title string) {
+@header(title)
+
+<body class="min-h-screen bg-gradient-to-br from-[#ffebc6] to-[#ffc078] font-poppins">
+	@nav()
+	<main class="flex justify-center items-center p-8">
+		@contents
+	</main>
+	<script src="https://unpkg.com/htmx.org@2.0.4"></script>
+</body>
+}

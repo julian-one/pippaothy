@@ -1,11 +1,17 @@
-/tmp/
+# general
 *.log
 *.swp
+*.db
 
-# Ignore generated Go files
-templates/*.go
-!templates/*.templ
-
-# OS-specific files
 .DS_Store
 
+# binaries
+pippaothy
+
+# templ generate files
+internal/templates/*.go
+
+# tailwind generated files
+static/css/output.css
+
+tmp
