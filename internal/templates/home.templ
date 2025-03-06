@@ -1,11 +1,30 @@
 package templates
 
-templ Home() {
-<div
-	class="flex flex-col items-center text-center bg-white p-8 rounded-[12px] shadow-md border border-transparent transition-all duration-1000 ease-in-out hover:border-[#e76f00] hover:shadow-xl">
-	<img class="w-[500px] h-[650px] object-cover rounded-[10px]" src="/static/images/pippa.jpg" />
-	<div class="pt-5 text-[32px] font-bold text-[#e76f00] tracking-[1px] uppercase">
-		Pippaothy
+templ Home(name, message string) {
+	<div
+		class="flex flex-col items-center text-center bg-white p-8 rounded-[12px] shadow-md border border-transparent transition-all duration-1000 ease-in-out hover:border-[#e76f00] hover:shadow-xl"
+	>
+		<img class="w-[500px] h-[650px] object-cover rounded-[10px]" src="/static/images/pippa.jpg"/>
+		if name != "" {
+			<p class="text-lg font-semibold p-4">Welcome, { name }!</p>
+		} else {
+			<p class="text-lg font-semibold p-4">Welcome!</p>
+		}
+		if message != "" {
+			<div
+				class="p-4 bg-green-100 text-green-700 rounded-md transition-all duration-1000 ease-in-out overflow-hidden animate-fade-out"
+			>
+				{ message }
+			</div>
+			<style>
+				@keyframes fadeOut {
+					0% { opacity: 1; max-height: 100px; }
+					100% { opacity: 0; max-height: 0px; padding: 0; margin: 0; }
+				}
+				.animate-fade-out {
+					animation: fadeOut 3s forwards 3s;
+				}
+			</style>
+		}
 	</div>
-</div>
 }

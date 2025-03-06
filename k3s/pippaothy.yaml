@@ -1,9 +1,10 @@
+---
 apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: pippaothy
   labels:
-    app: pippaothy 
+    app: pippaothy
 spec:
   replicas: 1
   selector:
@@ -15,23 +16,32 @@ spec:
         app: pippaothy
     spec:
       containers:
-      - name: pippaothy
-        image: julianone/pippaothy:latest 
-        ports:
-        - containerPort: 8080  
-        imagePullPolicy: Always
-
+        - name: pippaothy
+          image: julianone/pippaothy:latest
+          ports:
+            - containerPort: 8080
+          imagePullPolicy: Always
+          env:
+            - name: DB_PATH
+              value: /mnt/ssd/pippaothy.db
+          volumeMounts:
+            - name: ssd-storage
+              mountPath: /mnt/ssd
+      volumes:
+        - name: ssd-storage
+          hostPath:
+            path: /mnt/ssd
+            type: Directory
 ---
 apiVersion: v1
 kind: Service
 metadata:
-  name: pippaothy 
+  name: pippaothy
 spec:
   selector:
-    app: pippaothy 
-  type: LoadBalancer 
+    app: pippaothy
+  type: LoadBalancer
   ports:
     - protocol: TCP
-      port: 80 # External port
-      targetPort: 8080 # Container port
-
+      port: 80
+      targetPort: 8080

@@ -5,14 +5,13 @@ metadata:
 spec:
   ingressClassName: nginx
   rules:
-  - host: pippaothy.com
-    http:
-      paths:
-      - path: /
-        pathType: Prefix
-        backend:
-          service:
-            name: pippaothy
-            port:
-              number: 80
-
+    - host: pippaothy.com
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: pippaothy
+                port:
+                  number: 80

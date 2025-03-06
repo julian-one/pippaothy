@@ -3,6 +3,8 @@
 *.swp
 *.db
 
+tmp
+
 .DS_Store
 
 # binaries
@@ -14,4 +16,4 @@ internal/templates/*.go
 # tailwind generated files
 static/css/output.css
 
-tmp
+scratch.*
