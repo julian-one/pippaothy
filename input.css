@@ -1,2 +1,83 @@
-@config "./tailwind.config.js";
 @import "tailwindcss";
+
+@custom-variant theme (&:where(.theme-light, .theme-dark, .theme-orange));
+
+:root {
+  --bg-color: #121212;
+  --text-color: #e0e0e0;
+  --nav-bg: #1f1f1f;
+  --nav-text: #e0e0e0;
+  --message-bg: #065f46;
+  --message-text: #d1fae5;
+  --nav-border: #10b981;
+  --select-border: #10b981;
+}
+
+.theme-light {
+  --bg-color: #ffffff;
+  --text-color: #333333;
+  --nav-bg: #f3f4f6;
+  --nav-text: #333333;
+  --message-bg: #d1fae5;
+  --message-text: #065f46;
+  --nav-border: #10b981;
+  --select-border: #10b981;
+}
+
+.theme-orange {
+  --bg-color: #fff7f0;
+  --text-color: #4a2c2a;
+  --nav-bg: #ffedd5;
+  --nav-text: #4a2c2a;
+  --message-bg: #fed7aa;
+  --message-text: #7c2d12;
+  --nav-border: #f97316;
+  --select-border: #f97316;
+}
+
+body {
+  background-color: var(--bg-color);
+  color: var(--text-color);
+}
+
+nav {
+  background-color: var(--nav-bg);
+  color: var(--nav-text);
+  border-bottom: 4px solid var(--nav-border);
+  transition:
+    background-color 0.3s ease-in-out,
+    color 0.3s ease-in-out,
+    border-color 0.3s ease-in-out;
+}
+
+a,
+button,
+select {
+  transition: all 0.3s ease-in-out;
+}
+
+select {
+  border: 1px solid var(--select-border);
+}
+
+.message-box {
+  background-color: var(--message-bg);
+  color: var(--message-text);
+}
+
+@keyframes fadeOut {
+  0% {
+    opacity: 1;
+    max-height: 100px;
+  }
+  100% {
+    opacity: 0;
+    max-height: 0;
+    padding: 0;
+    margin: 0;
+  }
+}
+
+@utility animate-fadeOut {
+  animation: fadeOut 3s forwards 3s;
+}

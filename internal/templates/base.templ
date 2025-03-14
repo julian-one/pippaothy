@@ -10,25 +10,36 @@ templ header(title string) {
 }
 
 templ nav(loggedIn bool) {
-	<nav class="bg-white bg-opacity-80 backdrop-blur-sm p-4 shadow-md font-poppins">
+	<nav class="p-4 shadow-md">
 		<div class="container mx-auto flex justify-between items-center">
-			<div class="text-[#e76f00] text-xl font-bold uppercase">
-				<a href="/">Pippaothy</a>
+			<div class="uppercase font-bold tracking-wide text-xl">
+				<a class="hover:opacity-75 transition-all duration-300" href="/">Pippaothy</a>
 			</div>
-			<div class="space-x-4">
+			<div class="flex items-center gap-x-6">
 				if !loggedIn {
-					<a class="text-gray-800 hover:text-gray-600" href="/register">Register</a>
-					<a class="text-gray-800 hover:text-gray-600" href="/login">Login</a>
+					<a class="hover:opacity-75 transition-all duration-300" href="/register">Register</a>
+					<a class="hover:opacity-75 transition-all duration-300" href="/login">Login</a>
 				} else {
 					<button
+						class="hover:opacity-75 transition-all duration-300"
 						hx-post="/logout"
 						hx-target="body"
 						hx-swap="outerHTML"
-						class="text-gray-800 hover:text-gray-600"
 					>
 						Logout
 					</button>
 				}
+				<select
+					id="themeSelect"
+					onchange="setTheme(this.value)"
+					class="appearance-none p-4 rounded-md relative"
+					style="background-image: url('data:image/svg+xml,%3Csvg fill=%22none%22 stroke=%22gray%22 stroke-width=%222%22 viewBox=%220 0 24 24%22 xmlns=%22http://www.w3.org/2000/svg%22%3E%3Cpath stroke-linecap=%22round%22 stroke-linejoin=%22round%22 d=%22M19 9l-7 7-7-7%22/%3E%3C/svg%3E'); background-repeat: no-repeat; background-position: right 0.75rem center; background-size: 1rem; padding: 0.5rem;"
+				>
+					<option value="" disabled>Choose A Theme</option>
+					<option value="theme-dark">Dark</option>
+					<option value="theme-orange">Orange</option>
+					<option value="theme-light">Light</option>
+				</select>
 			</div>
 		</div>
 	</nav>
@@ -36,12 +47,13 @@ templ nav(loggedIn bool) {
 
 templ Layout(contents templ.Component, title string, loggedIn bool) {
 	@header(title)
-	<body class="min-h-screen bg-gradient-to-br from-[#ffebc6] to-[#ffc078] font-poppins">
+	<body class="min-h-screen">
 		@nav(loggedIn)
 		<main class="flex justify-center items-center p-8">
 			@contents
 		</main>
 		<script src="https://unpkg.com/htmx.org@2.0.4"></script>
 		<script src="https://unpkg.com/htmx.org/dist/ext/json-enc.js"></script>
+		<script src="/static/js/theme.js"></script>
 	</body>
 }

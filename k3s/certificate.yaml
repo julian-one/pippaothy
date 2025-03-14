@@ -1,0 +1,15 @@
+---
+apiVersion: cert-manager.io/v1
+kind: Certificate
+metadata:
+  name: pippaothy-tls
+  namespace: default
+  annotations:
+    acme.cert-manager.io/http01-edit-in-place: 'true'
+spec:
+  secretName: pippaothy-tls
+  issuerRef:
+    name: letsencrypt-prod
+    kind: ClusterIssuer
+  commonName: pippaothy.com
+  dnsNames: [pippaothy.com]

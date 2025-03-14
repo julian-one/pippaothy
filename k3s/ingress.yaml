@@ -1,7 +1,10 @@
+---
 apiVersion: networking.k8s.io/v1
 kind: Ingress
 metadata:
   name: pippaothy-ingress
+  annotations:
+    cert-manager.io/cluster-issuer: letsencrypt-prod
 spec:
   ingressClassName: nginx
   rules:
@@ -15,3 +18,6 @@ spec:
                 name: pippaothy
                 port:
                   number: 80
+  tls:
+    - hosts: [pippaothy.com]
+      secretName: pippaothy-tls
