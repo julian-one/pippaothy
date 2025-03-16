@@ -22,8 +22,31 @@ spec:
             - containerPort: 8080
           imagePullPolicy: Always
           env:
-            - name: DB_PATH
-              value: /mnt/ssd/pippaothy.db
+            - name: DB_HOST
+              valueFrom:
+                secretKeyRef:
+                  name: db-credentials
+                  key: DB_HOST
+            - name: DB_USER
+              valueFrom:
+                secretKeyRef:
+                  name: db-credentials
+                  key: DB_USER
+            - name: DB_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: db-credentials
+                  key: DB_PASSWORD
+            - name: DB_NAME
+              valueFrom:
+                secretKeyRef:
+                  name: db-credentials
+                  key: DB_NAME
+            - name: DB_PORT
+              valueFrom:
+                secretKeyRef:
+                  name: db-credentials
+                  key: DB_PORT
           volumeMounts:
             - name: ssd-storage
               mountPath: /mnt/ssd

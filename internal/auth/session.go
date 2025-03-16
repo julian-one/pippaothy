@@ -4,7 +4,6 @@ import (
 	"crypto/rand"
 	"encoding/base64"
 	"errors"
-	"fmt"
 	"net/http"
 	"pippaothy/internal/users"
 	"time"
@@ -33,7 +32,7 @@ func CreateSession(db *sqlx.DB, userId int64) (string, error) {
 		return "", errors.Join(errors.New("failed to generate token"), err)
 	}
 	expiresAt := time.Now().Add(24 * time.Hour)
-	_, err = db.Exec(`INSERT INTO sessions (session_id, user_id, expires_at) VALUES (?, ?, ?)`, token, userId, expiresAt)
+	_, err = db.Exec(`INSERT INTO sessions (session_id, user_id, expires_at) VALUES ($1, $2, $3)`, token, userId, expiresAt)
 	if err != nil {
 		return "", errors.Join(errors.New("failed to create session"), err)
 	}
@@ -41,7 +40,7 @@ func CreateSession(db *sqlx.DB, userId int64) (string, error) {
 }
 
 func DestorySession(db *sqlx.DB, token string) error {
-	_, err := db.Exec(`DELETE FROM sessions WHERE session_id = ?`, token)
+	_, err := db.Exec(`DELETE FROM sessions WHERE session_id = $1`, token)
 	return err
 }
 
@@ -50,10 +49,9 @@ func GetSession(db *sqlx.DB, token string) (*users.User, error) {
 	err := db.Get(&user, `
 		SELECT u.* FROM users u
 		INNER JOIN sessions s ON (s.user_id = u.user_id)
-		WHERE s.session_id = ? AND s.expires_at > ?`,
+		WHERE s.session_id = $1 AND s.expires_at > $2`,
 		token, time.Now().UTC())
 	if err != nil {
-		fmt.Println("session retrival failed:", err)
 		return nil, errors.New("invalid session")
 	}
 	return &user, nil

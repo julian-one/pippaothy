@@ -1,28 +1,58 @@
 package templates
 
 templ Register() {
-	<div class="max-w-md mx-auto p-10 rounded-lg shadow-lg">
+	<div class="max-w-md mx-auto p-10 rounded-lg shadow-lg" hx-ext="json-enc,response-targets">
 		<h2 class="text-3xl font-bold text-center mb-4">Register</h2>
-		<form hx-post="/register" hx-swap="innerHTML" hx-ext="json-enc">
+		<form
+			hx-post="/register"
+			hx-trigger="submit"
+			hx-target-*="#register-error"
+		>
 			<div class="mb-4">
 				<label for="first_name" class="block text-sm font-medium">First Name</label>
-				<input type="text" id="first_name" name="first_name" class="p-2 w-full border rounded-md" required/>
+				<input
+					type="text"
+					id="first_name"
+					name="first_name"
+					class="p-2 w-full border rounded-md"
+					required
+				/>
 			</div>
 			<div class="mb-4">
 				<label for="last_name" class="block text-sm font-medium">Last Name</label>
-				<input type="text" id="last_name" name="last_name" class="p-2 w-full border rounded-md" required/>
+				<input
+					type="text"
+					id="last_name"
+					name="last_name"
+					class="p-2 w-full border rounded-md"
+					required
+				/>
 			</div>
 			<div class="mb-4">
 				<label for="email" class="block text-sm font-medium">Email</label>
-				<input type="email" id="email" name="email" class="p-2 w-full border rounded-md" required/>
+				<input
+					type="email"
+					id="email"
+					name="email"
+					class="p-2 w-full border rounded-md"
+					required
+				/>
 			</div>
 			<div class="mb-4">
 				<label for="password" class="block text-sm font-medium">Password</label>
-				<input type="password" id="password" name="password" class="p-2 w-full border rounded-md" required/>
+				<input
+					type="password"
+					id="password"
+					name="password"
+					placeholder="••••••••"
+					class="p-2 w-full border rounded-md"
+					required
+				/>
 			</div>
 			<button type="submit" class="w-full p-2 rounded-md">
 				Submit
 			</button>
+			<div id="register-error"></div>
 		</form>
 	</div>
 }

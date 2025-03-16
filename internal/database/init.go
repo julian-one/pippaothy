@@ -2,19 +2,26 @@ package database
 
 import (
 	"errors"
+	"fmt"
 	"io"
 	"os"
 
 	"github.com/jmoiron/sqlx"
-	_ "github.com/mattn/go-sqlite3"
+	_ "github.com/lib/pq"
 )
 
+func GetPostgresConnectionString() string {
+	host := os.Getenv("DB_HOST")
+	port := os.Getenv("DB_PORT")
+	user := os.Getenv("DB_USER")
+	password := os.Getenv("DB_PASSWORD")
+	dbname := os.Getenv("DB_NAME")
+	return fmt.Sprintf("postgres://%s:%s@%s:%s/%s?sslmode=disable", user, password, host, port, dbname)
+}
+
 func Create() (*sqlx.DB, error) {
-	path := os.Getenv("DB_PATH")
-	if path == "" {
-		path = "./pippaothy.db"
-	}
-	db, err := sqlx.Open("sqlite3", path)
+	connStr := GetPostgresConnectionString()
+	db, err := sqlx.Open("postgres", connStr)
 	if err != nil {
 		return nil, errors.Join(errors.New("failed to open the database"), err)
 	}

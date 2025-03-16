@@ -32,7 +32,7 @@ type CreateRequest struct {
 
 func ById(db *sqlx.DB, id string) (*User, error) {
 	var u User
-	err := db.Get(&u, `SELECT * FROM users WHERE user_id = ?`, id)
+	err := db.Get(&u, `SELECT * FROM users WHERE user_id = $1`, id)
 	if err != nil {
 		return nil, errors.Join(errors.New("failed to get user"), err)
 	}
@@ -41,11 +41,19 @@ func ById(db *sqlx.DB, id string) (*User, error) {
 
 func ByEmail(db *sqlx.DB, email string) (*User, error) {
 	var u User
-	err := db.Get(&u, `SELECT * FROM users WHERE email = ?`, email)
+	err := db.Get(&u, `SELECT * FROM users WHERE email = $1`, email)
 	if err != nil {
 		return nil, errors.New("failed to get user by email")
 	}
 	return &u, nil
+}
+
+func Exists(db *sqlx.DB, email string) bool {
+	var exists bool
+	if err := db.Get(&exists, "SELECT EXISTS (SELECT 1 FROM users WHERE email = $1)", email); err != nil {
+		return false
+	}
+	return exists
 }
 
 func List(db *sqlx.DB) ([]User, error) {
@@ -62,15 +70,13 @@ func Create(db *sqlx.DB, request CreateRequest) (int64, error) {
 	if err != nil {
 		return 0, errors.Join(errors.New("failed to hash password"), err)
 	}
-	result, err := db.Exec(`INSERT INTO users (first_name, last_name, email, password_hash, salt) VALUES (?, ?, ?, ?, ?)`,
-		request.FirstName, request.LastName, request.Email, h, s)
+	var uid int64
+	err = db.QueryRow(
+		`INSERT INTO users (first_name, last_name, email, password_hash, salt) VALUES ($1, $2, $3, $4, $5) RETURNING user_id`,
+		request.FirstName, request.LastName, request.Email, h, s,
+	).Scan(&uid)
 	if err != nil {
 		return 0, errors.Join(errors.New("failed to create user"), err)
-	}
-
-	uid, err := result.LastInsertId()
-	if err != nil {
-		return 0, errors.Join(errors.New("failed to get the user id"), err)
 	}
 	return uid, nil
 }

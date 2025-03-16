@@ -1,10 +1,10 @@
 # general
 *.log
 *.swp
-*.db
 
 tmp
 
+# mac
 .DS_Store
 
 # binaries
@@ -16,4 +16,5 @@ internal/templates/*.go
 # tailwind generated files
 static/css/output.css
 
-scratch.*
+.env
+scratch*
