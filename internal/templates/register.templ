@@ -1,12 +1,13 @@
 package templates
 
 templ Register() {
-	<div class="max-w-md mx-auto p-10 rounded-lg shadow-lg" hx-ext="json-enc,response-targets">
+	<div class="max-w-md mx-auto p-10 rounded-lg shadow-lg">
 		<h2 class="text-3xl font-bold text-center mb-4">Register</h2>
 		<form
 			hx-post="/register"
 			hx-trigger="submit"
 			hx-target-*="#register-error"
+			hx-ext="json-enc-custom,response-targets"
 		>
 			<div class="mb-4">
 				<label for="first_name" class="block text-sm font-medium">First Name</label>

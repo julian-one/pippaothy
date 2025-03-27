@@ -16,3 +16,17 @@ CREATE TABLE IF NOT EXISTS sessions (
   expires_at timestamp NOT NULL,
   FOREIGN KEY (user_id) REFERENCES users (user_id) ON DELETE CASCADE
 );
+
+-- What's Cooking?!
+CREATE TABLE IF NOT EXISTS recipes (
+    recipe_id SERIAL PRIMARY KEY,
+    name VARCHAR(255) NOT NULL,
+    description TEXT,
+    ingredients TEXT[] NOT NULL,
+    steps TEXT[] NOT NULL, 
+    prep_time INTEGER,
+    cook_time INTEGER,
+    servings INTEGER,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+

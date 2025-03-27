@@ -21,8 +21,14 @@ func (r *Router) RegisterRoutes(mux *http.ServeMux) {
 	mux.Handle("/static/", http.StripPrefix("/static/", fs))
 
 	// Authenticated routes
-	mux.Handle("/", middleware.IsAuthenticated(r.DB, Home(r.DB)))
-	mux.Handle("POST /logout", middleware.IsAuthenticated(r.DB, Logout(r.DB)))
+	mux.Handle("/", middleware.OptionalAuthentication(r.DB, Home(r.DB)))
+	mux.Handle("POST /logout", middleware.RequiredAuthentication(r.DB, Logout(r.DB)))
+	//
+	mux.Handle("GET /recipes/list", middleware.RequiredAuthentication(r.DB, ListRecipes(r.DB)))
+	mux.Handle("GET /recipes", middleware.RequiredAuthentication(r.DB, Recipe()))
+	mux.Handle("POST /recipes", middleware.RequiredAuthentication(r.DB, CreateRecipe(r.DB)))
+	mux.Handle("GET /recipes/ingredient", Ingredient())
+	mux.Handle("GET /recipes/step", Step())
 
 	// Unauthenticated routes
 	mux.Handle("GET /register", Register())

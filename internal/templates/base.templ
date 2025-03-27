@@ -20,6 +20,7 @@ templ nav(loggedIn bool) {
 					<a class="hover:opacity-75 transition-all duration-300" href="/register">Register</a>
 					<a class="hover:opacity-75 transition-all duration-300" href="/login">Login</a>
 				} else {
+					<a class="hover:opacity-75 transition-all duration-300" href="/recipes/list">Recipes</a>
 					<button
 						class="hover:opacity-75 transition-all duration-300"
 						hx-post="/logout"
@@ -54,7 +55,7 @@ templ Layout(contents templ.Component, title string, loggedIn bool) {
 		</main>
 		<script src="https://unpkg.com/htmx.org@2.0.4"></script>
 		<script src="https://unpkg.com/htmx-ext-response-targets@2.0.2"></script>
-		<script src="https://unpkg.com/htmx.org/dist/ext/json-enc.js"></script>
+		<script src="https://cdn.jsdelivr.net/gh/Emtyloc/json-enc-custom@main/json-enc-custom.js"></script>
 		<script src="/static/js/theme.js"></script>
 	</body>
 }
