@@ -2,6 +2,7 @@ package auth
 
 import (
 	"crypto/rand"
+	"database/sql"
 	"encoding/base64"
 	"errors"
 	"net/http"
@@ -12,9 +13,10 @@ import (
 )
 
 type Session struct {
-	SessionId string    `db:"session_id" json:"session_id"`
-	UserId    int64     `db:"user_id" json:"user_id"`
-	ExpiresAt time.Time `db:"expires_at" json:"expires_at"`
+	SessionId    string    `db:"session_id"    json:"session_id"`
+	UserId       int64     `db:"user_id"       json:"user_id"`
+	ExpiresAt    time.Time `db:"expires_at"    json:"expires_at"`
+	FlashMessage *string   `db:"flash_message" json:"flash_message,omitempty"`
 }
 
 func generateToken() (string, error) {
@@ -32,14 +34,19 @@ func CreateSession(db *sqlx.DB, userId int64) (string, error) {
 		return "", errors.Join(errors.New("failed to generate token"), err)
 	}
 	expiresAt := time.Now().Add(24 * time.Hour)
-	_, err = db.Exec(`INSERT INTO sessions (session_id, user_id, expires_at) VALUES ($1, $2, $3)`, token, userId, expiresAt)
+	_, err = db.Exec(
+		`INSERT INTO sessions (session_id, user_id, expires_at) VALUES ($1, $2, $3)`,
+		token,
+		userId,
+		expiresAt,
+	)
 	if err != nil {
 		return "", errors.Join(errors.New("failed to create session"), err)
 	}
 	return token, nil
 }
 
-func DestorySession(db *sqlx.DB, token string) error {
+func DestroySession(db *sqlx.DB, token string) error {
 	_, err := db.Exec(`DELETE FROM sessions WHERE session_id = $1`, token)
 	return err
 }
@@ -75,4 +82,42 @@ func ResetCookie(w http.ResponseWriter) {
 		Expires:  time.Now(),
 		HttpOnly: true,
 	})
+}
+
+func SetFlashMessage(db *sqlx.DB, token, message string) error {
+	_, err := db.Exec(`
+		UPDATE sessions 
+		SET flash_message = $1 
+		WHERE session_id = $2 AND expires_at > $3`,
+		message, token, time.Now().UTC())
+	return err
+}
+
+func GetAndClearFlashMessage(db *sqlx.DB, token string) (string, error) {
+	var message sql.NullString
+
+	err := db.QueryRow(`
+		SELECT flash_message 
+		FROM sessions 
+		WHERE session_id = $1 AND expires_at > $2`,
+		token, time.Now().UTC()).Scan(&message)
+	if err != nil {
+		if err == sql.ErrNoRows {
+			return "", nil // No session found, return empty string
+		}
+		return "", err
+	}
+
+	if message.Valid && message.String != "" {
+		_, err = db.Exec(`
+			UPDATE sessions 
+			SET flash_message = NULL 
+			WHERE session_id = $1 AND expires_at > $2`,
+			token, time.Now().UTC())
+		if err != nil {
+			return "", err
+		}
+		return message.String, nil
+	}
+	return "", nil
 }

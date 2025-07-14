@@ -1,61 +1,59 @@
 package templates
 
-templ header(title string) {
-	<head>
-		<title>{ title }</title>
-		<meta charset="UTF-8"/>
-		<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-		<link rel="stylesheet" href="/static/css/output.css"/>
-	</head>
-}
-
-templ nav(loggedIn bool) {
-	<nav class="p-4 shadow-md">
-		<div class="container mx-auto flex justify-between items-center">
-			<div class="uppercase font-bold tracking-wide text-xl">
-				<a class="hover:opacity-75 transition-all duration-300" href="/">Pippaothy</a>
-			</div>
-			<div class="flex items-center gap-x-6">
-				if !loggedIn {
-					<a class="hover:opacity-75 transition-all duration-300" href="/register">Register</a>
-					<a class="hover:opacity-75 transition-all duration-300" href="/login">Login</a>
-				} else {
-					<a class="hover:opacity-75 transition-all duration-300" href="/recipes/list">Recipes</a>
-					<button
-						class="hover:opacity-75 transition-all duration-300"
-						hx-post="/logout"
-						hx-target="body"
-						hx-swap="outerHTML"
-					>
-						Logout
-					</button>
-				}
-				<select
-					id="themeSelect"
-					onchange="setTheme(this.value)"
-					class="appearance-none p-4 rounded-md relative"
-					style="background-image: url('data:image/svg+xml,%3Csvg fill=%22none%22 stroke=%22gray%22 stroke-width=%222%22 viewBox=%220 0 24 24%22 xmlns=%22http://www.w3.org/2000/svg%22%3E%3Cpath stroke-linecap=%22round%22 stroke-linejoin=%22round%22 d=%22M19 9l-7 7-7-7%22/%3E%3C/svg%3E'); background-repeat: no-repeat; background-position: right 0.75rem center; background-size: 1rem; padding: 0.5rem;"
-				>
-					<option value="" disabled>Choose A Theme</option>
-					<option value="theme-dark">Dark</option>
-					<option value="theme-orange">Orange</option>
-					<option value="theme-light">Light</option>
-				</select>
-			</div>
-		</div>
-	</nav>
-}
-
 templ Layout(contents templ.Component, title string, loggedIn bool) {
-	@header(title)
-	<body class="min-h-screen">
-		@nav(loggedIn)
-		<main class="flex justify-center items-center p-8">
-			@contents
-		</main>
-		<script src="https://unpkg.com/htmx.org@2.0.4"></script>
-		<script src="https://unpkg.com/htmx-ext-response-targets@2.0.2"></script>
-		<script src="https://cdn.jsdelivr.net/gh/Emtyloc/json-enc-custom@main/json-enc-custom.js"></script>
-		<script src="/static/js/theme.js"></script>
-	</body>
+	<!DOCTYPE html>
+	<html lang="en">
+		<head>
+			<title>{ title }</title>
+			<meta charset="UTF-8"/>
+			<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+			<link rel="stylesheet" href="/static/css/output.css"/>
+		</head>
+		<body class="min-h-screen grid grid-rows-[auto_1fr] bg-gray-50">
+			<nav class="p-4">
+				<div class="flex justify-between items-center">
+					<div class="uppercase font-bold text-xl">
+						<a href="/">Pippaothy</a>
+					</div>
+					<div class="flex gap-4 items-center">
+						if !loggedIn {
+							<a href="/register">Register</a>
+							<a href="/login">Login</a>
+						} else {
+							<button
+								hx-post="/logout"
+								hx-target="body"
+								hx-swap="outerHTML"
+							>
+								Logout
+							</button>
+						}
+					</div>
+				</div>
+			</nav>
+			<main class="grid place-items-center p-8">
+				<div class="w-full max-w-6xl">
+					@contents
+				</div>
+			</main>
+			<script src="https://unpkg.com/htmx.org@2.0.4"></script>
+		</body>
+	</html>
+}
+
+templ Home(name, message string) {
+	<div class="grid gap-6 max-w-md mx-auto p-8 bg-white rounded-lg shadow-md border">
+		<div class="grid gap-2">
+			if name != "" {
+				<h2 class="text-2xl font-bold text-center text-gray-800 break-words">Welcome Back { name }!</h2>
+			} else {
+				<h2 class="text-2xl font-bold text-center text-gray-800">Welcome!</h2>
+			}
+		</div>
+		if message != "" {
+			<div class="bg-green-100 border border-green-400 text-green-700 px-4 py-4 rounded-md break-words">
+				<span class="font-medium">{ message }</span>
+			</div>
+		}
+	</div>
 }

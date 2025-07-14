@@ -9,6 +9,7 @@ tmp
 
 # binaries
 pippaothy
+main
 
 # templ generate files
 internal/templates/*.go
@@ -18,3 +19,4 @@ static/css/output.css
 
 .env
 scratch*
+cspell.json

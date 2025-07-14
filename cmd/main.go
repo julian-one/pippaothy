@@ -1,23 +1,33 @@
 package main
 
 import (
-	"net/http"
+	"log/slog"
+	"os"
 	"pippaothy/internal/database"
-	"pippaothy/internal/route"
+	"pippaothy/internal/server"
 )
 
 func main() {
+	logger := slog.New(
+		slog.NewJSONHandler(
+			os.Stdout,
+			&slog.HandlerOptions{
+				Level: slog.LevelDebug,
+			},
+		),
+	)
+
 	db, err := database.Create()
 	if err != nil {
-		panic(err)
+		logger.Error("Failed to initialize database", "error", err)
+		os.Exit(1)
 	}
 	defer db.Close()
+	logger.Info("Database connection established")
 
-	mux := http.NewServeMux()
-	router := route.NewRouter(db)
-	router.RegisterRoutes(mux)
-
-	if err := http.ListenAndServe(":8080", mux); err != nil {
-		panic(err)
+	s := server.New(db, logger)
+	if err := s.Start(); err != nil {
+		logger.Error("Server failed to start", "error", err)
+		os.Exit(1)
 	}
 }

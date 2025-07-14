@@ -17,7 +17,7 @@ RUN go install github.com/a-h/templ/cmd/templ@latest
 
 RUN templ generate
 
-RUN tailwindcss -i ./input.css -o ./static/css/output.css
+RUN tailwindcss -i ./static/css/input.css -o ./static/css/output.css
 
 RUN CGO_ENABLED=1 GOOS=linux GOARCH=arm64 go build -o pippaothy ./cmd/main.go
 
