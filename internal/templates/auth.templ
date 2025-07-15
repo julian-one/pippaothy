@@ -9,6 +9,7 @@ templ Register() {
 			hx-post="/register"
 			hx-trigger="submit"
 			hx-target="#register-error"
+			hx-target-error="#register-error"
 			class="grid gap-4"
 		>
 			<div class="grid gap-1">
@@ -78,6 +79,7 @@ templ Login() {
 			hx-post="/login"
 			hx-trigger="submit"
 			hx-target="#login-error"
+			hx-target-error="#login-error"
 			class="grid gap-4"
 		>
 			<div class="grid gap-1">

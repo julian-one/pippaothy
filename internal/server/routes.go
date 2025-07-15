@@ -28,6 +28,14 @@ func (s *Server) getRegister(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *Server) postRegister(w http.ResponseWriter, r *http.Request) {
+	if err := r.ParseForm(); err != nil {
+		s.logger.Error("failed to parse registration form", "error", err)
+		w.Header().Set("Content-Type", "text/html")
+		w.WriteHeader(http.StatusBadRequest)
+		w.Write([]byte(`<div class="error">Invalid form data</div>`))
+		return
+	}
+
 	request := users.CreateRequest{
 		FirstName: r.FormValue("first_name"),
 		LastName:  r.FormValue("last_name"),
@@ -82,7 +90,7 @@ func (s *Server) postLogin(w http.ResponseWriter, r *http.Request) {
 	if err := r.ParseForm(); err != nil {
 		s.logger.Error("failed to parse login form", "error", err)
 		w.Header().Set("Content-Type", "text/html")
-		w.WriteHeader(http.StatusOK) // Always return 200 for HTMX to process
+		w.WriteHeader(http.StatusBadRequest)
 		w.Write([]byte(`<div class="error">Invalid form data</div>`))
 		return
 	}
@@ -95,7 +103,7 @@ func (s *Server) postLogin(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		s.logger.Warn("login failed - user not found", "email", email)
 		w.Header().Set("Content-Type", "text/html")
-		w.WriteHeader(http.StatusOK) // Always return 200 for HTMX to process
+		w.WriteHeader(http.StatusUnauthorized)
 		w.Write([]byte(`<div class="error">Invalid credentials</div>`))
 		return
 	}
@@ -104,7 +112,7 @@ func (s *Server) postLogin(w http.ResponseWriter, r *http.Request) {
 	if !users.VerifyPassword(user, password) {
 		s.logger.Warn("login failed - invalid password", "email", email)
 		w.Header().Set("Content-Type", "text/html")
-		w.WriteHeader(http.StatusOK) // Always return 200 for HTMX to process
+		w.WriteHeader(http.StatusUnauthorized)
 		w.Write([]byte(`<div class="error">Invalid credentials</div>`))
 		return
 	}
@@ -114,7 +122,7 @@ func (s *Server) postLogin(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		s.logger.Error("failed to create session", "error", err)
 		w.Header().Set("Content-Type", "text/html")
-		w.WriteHeader(http.StatusOK) // Always return 200 for HTMX to process
+		w.WriteHeader(http.StatusInternalServerError)
 		w.Write([]byte(`<div class="error">Failed to create session</div>`))
 		return
 	}
@@ -132,7 +140,6 @@ func (s *Server) postLogout(w http.ResponseWriter, r *http.Request) {
 	if cookie, err := r.Cookie("session_token"); err == nil {
 		if err := auth.DestroySession(s.db, cookie.Value); err != nil {
 			s.logger.Error("failed to destroy session", "error", err)
-			w.Header().Set("Content-Type", "text/html")
 			w.WriteHeader(http.StatusInternalServerError)
 			return
 		}
