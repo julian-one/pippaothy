@@ -33,15 +33,15 @@ type Recipe struct {
 }
 
 type Ingredient struct {
-	IngredientID   int64  `db:"ingredient_id" json:"ingredient_id"`
-	RecipeID       int64  `db:"recipe_id" json:"recipe_id"`
-	IngredientText string `db:"ingredient_text" json:"ingredient_text"`
-	OrderIndex     int    `db:"order_index" json:"order_index"`
-	Amount         string `db:"amount" json:"amount"`
-	Unit           string `db:"unit" json:"unit"`
-	Item           string `db:"item" json:"item"`
-	Notes          string `db:"notes" json:"notes"`
-	CreatedAt      time.Time `db:"created_at" json:"created_at"`
+	IngredientID   int64          `db:"ingredient_id" json:"ingredient_id"`
+	RecipeID       int64          `db:"recipe_id" json:"recipe_id"`
+	IngredientText string         `db:"ingredient_text" json:"ingredient_text"`
+	OrderIndex     int            `db:"order_index" json:"order_index"`
+	Amount         sql.NullString `db:"amount" json:"amount"`
+	Unit           sql.NullString `db:"unit" json:"unit"`
+	Item           string         `db:"item" json:"item"`
+	Notes          sql.NullString `db:"notes" json:"notes"`
+	CreatedAt      time.Time      `db:"created_at" json:"created_at"`
 }
 
 type Instruction struct {

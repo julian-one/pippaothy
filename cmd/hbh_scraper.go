@@ -284,6 +284,8 @@ func scrapeRecipeList(client *http.Client, categoryURL string, page int) ([]Reci
 		if recipe.Image == "" {
 			recipe.Image, _ = imageEl.Attr("data-src")
 		}
+		// Convert to high-res version if possible
+		recipe.Image = getHighResImageURL(recipe.Image)
 
 		recipe.Category = strings.TrimSpace(s.Find(".entry-category").Text())
 		recipe.Date = strings.TrimSpace(s.Find(".entry-date").Text())
@@ -394,13 +396,35 @@ func scrapeRecipeDetail(client *http.Client, recipeURL string) (*RecipeData, err
 	recipe.CookTime = cleanTimeString(doc.Find(".wprm-recipe-cook-time").Text())
 	recipe.Servings = strings.TrimSpace(doc.Find(".wprm-recipe-servings").Text())
 
-	// Get image
+	// Get image - try multiple selectors for best quality
 	if recipe.Image == "" {
-		imageEl := doc.Find(".entry-content img").First()
+		// Try recipe card image first (usually higher quality)
+		imageEl := doc.Find(".wprm-recipe-image img").First()
 		recipe.Image, _ = imageEl.Attr("src")
 		if recipe.Image == "" {
 			recipe.Image, _ = imageEl.Attr("data-src")
 		}
+		
+		// Fallback to entry content images
+		if recipe.Image == "" {
+			imageEl = doc.Find(".entry-content img").First()
+			recipe.Image, _ = imageEl.Attr("src")
+			if recipe.Image == "" {
+				recipe.Image, _ = imageEl.Attr("data-src")
+			}
+		}
+		
+		// Try featured image
+		if recipe.Image == "" {
+			imageEl = doc.Find(".post-featured-image img").First()
+			recipe.Image, _ = imageEl.Attr("src")
+			if recipe.Image == "" {
+				recipe.Image, _ = imageEl.Attr("data-src")
+			}
+		}
+		
+		// Convert to high-res version
+		recipe.Image = getHighResImageURL(recipe.Image)
 	}
 
 	// Get description
@@ -501,4 +525,41 @@ type ImportStats struct {
 	Failed    int
 	Skipped   int
 	Errors    []string
+}
+
+// getHighResImageURL converts an image URL to its high-resolution version
+func getHighResImageURL(originalURL string) string {
+	if originalURL == "" {
+		return ""
+	}
+	
+	// Half Baked Harvest high-res image patterns
+	// Example: image.jpg -> image-scaled.jpg
+	// Or: image-300x200.jpg -> image-scaled.jpg
+	
+	// Check if it's a Half Baked Harvest image
+	if !strings.Contains(originalURL, "halfbakedharvest.com") {
+		return originalURL
+	}
+	
+	// Skip if already high-res
+	if strings.Contains(originalURL, "-scaled.") {
+		return originalURL
+	}
+	
+	// Convert various patterns to high-res
+	// Pattern 1: Remove size suffixes like -300x200, -150x150, etc.
+	re := regexp.MustCompile(`-\d+x\d+(\.(jpg|jpeg|png|webp))`)
+	if re.MatchString(originalURL) {
+		// Replace -300x200.jpg with -scaled.jpg
+		return re.ReplaceAllString(originalURL, "-scaled$1")
+	}
+	
+	// Pattern 2: Insert -scaled before file extension
+	re = regexp.MustCompile(`(\.(jpg|jpeg|png|webp))$`)
+	if re.MatchString(originalURL) {
+		return re.ReplaceAllString(originalURL, "-scaled$1")
+	}
+	
+	return originalURL
 }
