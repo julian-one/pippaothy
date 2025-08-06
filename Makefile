@@ -43,6 +43,9 @@ templ-generate:
 build: tailwind-build templ-generate
 	go build -o ./bin/$(APP_NAME) ./cmd/main.go
 
+build-scraper:
+	go build -o ./bin/hbh-scraper ./cmd/hbh_scraper.go
+
 # Watchers
 tailwind-watch:
 	@if [ ! -f "$(TAILWIND_BIN)" ]; then echo "Tailwind CSS not found. Run 'make install-tools' first."; exit 1; fi

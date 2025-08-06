@@ -8,6 +8,7 @@ tmp
 .DS_Store
 
 # binaries
+bin/*
 pippaothy
 main
 

@@ -4,7 +4,6 @@ import (
 	"context"
 	"log/slog"
 	"net/http"
-	"pippaothy/internal/ipinfo"
 
 	"github.com/jmoiron/sqlx"
 )
@@ -12,7 +11,6 @@ import (
 type Server struct {
 	db      *sqlx.DB
 	logger  *slog.Logger
-	ipInfo  *ipinfo.Service
 	server  *http.Server
 }
 
@@ -20,7 +18,6 @@ func New(db *sqlx.DB, logger *slog.Logger) *Server {
 	return &Server{
 		db:     db,
 		logger: logger,
-		ipInfo: ipinfo.NewService(),
 	}
 }
 
@@ -40,6 +37,17 @@ func (s *Server) Start() error {
 	mux.HandleFunc("POST /login", s.requireCSRF(s.postLogin))
 	mux.HandleFunc("POST /logout", s.requireAuth(s.requireCSRF(s.postLogout)))
 	mux.HandleFunc("GET /logs", s.requireAuth(s.getSimpleLogs))
+	
+	// Recipe routes
+	mux.HandleFunc("GET /recipes", s.requireAuth(s.handleRecipesList))
+	mux.HandleFunc("GET /recipes/public", s.withAuth(s.handlePublicRecipes))
+	mux.HandleFunc("GET /recipes/search", s.withAuth(s.handleRecipeSearch))
+	mux.HandleFunc("GET /recipes/new", s.requireAuth(s.handleRecipeNew))
+	mux.HandleFunc("POST /recipes", s.requireAuth(s.handleRecipeCreate))
+	mux.HandleFunc("GET /recipes/{id}", s.withAuth(s.handleRecipeDetail))
+	mux.HandleFunc("GET /recipes/{id}/edit", s.requireAuth(s.handleRecipeEdit))
+	mux.HandleFunc("PUT /recipes/{id}", s.requireAuth(s.handleRecipeUpdate))
+	mux.HandleFunc("DELETE /recipes/{id}", s.requireAuth(s.handleRecipeDelete))
 
 	// Wrap the entire mux with logging middleware
 	handler := s.withLogging(mux.ServeHTTP)

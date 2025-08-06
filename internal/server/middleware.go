@@ -109,8 +109,6 @@ func (s *Server) withLogging(next http.HandlerFunc) http.HandlerFunc {
 		referer := r.Referer()
 		isStatic := isStaticAsset(r.URL.Path)
 		
-		// Get detailed IP information including geolocation
-		ipInfo := s.ipInfo.GetIPInfo(clientIP)
 		
 		// Get content length for request body size
 		contentLength := r.ContentLength
@@ -118,24 +116,13 @@ func (s *Server) withLogging(next http.HandlerFunc) http.HandlerFunc {
 			contentLength = 0
 		}
 		
-		// Build base log fields with enhanced IP information
+		// Build base log fields
 		baseFields := []interface{}{
 			"request_id", requestID,
 			"method", r.Method,
 			"path", r.URL.Path,
 			"query", r.URL.RawQuery,
 			"client_ip", clientIP,
-			"ip_country", ipInfo.Country,
-			"ip_country_code", ipInfo.CountryCode,
-			"ip_region", ipInfo.Region,
-			"ip_city", ipInfo.City,
-			"ip_latitude", ipInfo.Latitude,
-			"ip_longitude", ipInfo.Longitude,
-			"ip_isp", ipInfo.ISP,
-			"ip_asn", ipInfo.ASN,
-			"ip_timezone", ipInfo.Timezone,
-			"ip_is_private", ipInfo.IsPrivate,
-			"ip_is_loopback", ipInfo.IsLoopback,
 			"user_agent", userAgent,
 			"referer", referer,
 			"request_size", contentLength,
@@ -312,7 +299,6 @@ func (s *Server) requireAuth(next http.HandlerFunc) http.HandlerFunc {
 		var flashMessage string
 		requestID := s.getRequestID(r)
 		clientIP := getClientIP(r)
-		ipInfo := s.ipInfo.GetIPInfo(clientIP)
 
 		// Check for session cookie
 		if cookie, err := r.Cookie("session_token"); err == nil {
@@ -322,9 +308,6 @@ func (s *Server) requireAuth(next http.HandlerFunc) http.HandlerFunc {
 				s.logger.Warn("authentication failed - invalid session",
 					"request_id", requestID,
 					"client_ip", clientIP,
-					"ip_country", ipInfo.Country,
-					"ip_city", ipInfo.City,
-					"ip_is_private", ipInfo.IsPrivate,
 					"path", r.URL.Path,
 					"error", sessionErr,
 					"session_token", cookie.Value[:8]+"...",
@@ -338,10 +321,6 @@ func (s *Server) requireAuth(next http.HandlerFunc) http.HandlerFunc {
 			s.logger.Info("authentication required - redirecting to login",
 				"request_id", requestID,
 				"client_ip", clientIP,
-				"ip_country", ipInfo.Country,
-				"ip_city", ipInfo.City,
-				"ip_isp", ipInfo.ISP,
-				"ip_is_private", ipInfo.IsPrivate,
 				"path", r.URL.Path,
 				"method", r.Method,
 				"user_agent", r.UserAgent(),

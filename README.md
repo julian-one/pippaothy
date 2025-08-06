@@ -1,17 +1,29 @@
 # Pippaothy
 
-A modern, lightweight web application built with Go, featuring session-based authentication, structured logging, and real-time log viewing capabilities.
+A modern, full-featured recipe management and web scraping application built with Go. Features comprehensive user authentication, recipe database management, web scraping capabilities, and real-time log monitoring.
 
 ## Features
 
-- **Session-based Authentication**: Secure user registration and login system with CSRF protection
-- **Real-time Logging**: Comprehensive structured JSON logging with geolocation data
+### Core Application
+- **Recipe Management**: Create, edit, delete, and organize personal recipes with ingredients and instructions
+- **Recipe Discovery**: Browse public recipes shared by other users
+- **Recipe Import**: Advanced web scraping system to import recipes from external sources
+- **Search & Filtering**: Find recipes by title, tags, cuisine, and difficulty level
+- **User Profiles**: Personal recipe collections with privacy controls
+
+### Authentication & Security
+- **Session-based Authentication**: Secure user registration and login with CSRF protection
+- **Password Security**: Salted password hashing with strength requirements
+- **Session Management**: Database-stored sessions with automatic expiration and flash messages
+- **Input Validation**: Comprehensive server-side validation and sanitization
+
+### Technical Features
+- **Real-time Logging**: Structured JSON logging with request tracing and geolocation
 - **Log Viewer**: Web-based interface for viewing and filtering application logs
-- **Modern Frontend**: HTMX-powered dynamic UI with Tailwind CSS styling
-- **Database Integration**: PostgreSQL with connection pooling and automatic schema setup
-- **Security**: Password hashing with salts, CSRF tokens, and secure session management
-- **Health Checks**: Built-in health and readiness endpoints for monitoring
-- **Development Tools**: Hot-reload development environment with auto-rebuilding assets
+- **Modern Frontend**: HTMX-powered dynamic UI with Tailwind CSS and custom typography
+- **Database Integration**: PostgreSQL with optimized connection pooling and migrations
+- **Health Monitoring**: Built-in health and readiness endpoints
+- **Development Tools**: Hot-reload environment with asset watching and live rebuilding
 
 ## Architecture
 
@@ -35,6 +47,19 @@ users (user_id, first_name, last_name, email, password_hash, salt, last_login, c
 
 -- Sessions table for authentication state
 sessions (session_id, user_id, expires_at, flash_message)
+
+-- Recipes table with detailed recipe information
+recipes (recipe_id, user_id, source_name, source_url, title, description, prep_time, 
+         cook_time, servings, difficulty, cuisine, tags, image_url, is_public, 
+         created_at, updated_at)
+
+-- Recipe ingredients with order and parsing
+recipe_ingredients (ingredient_id, recipe_id, ingredient_text, order_index, 
+                   amount, unit, item, notes, created_at)
+
+-- Recipe instructions with order and timing
+recipe_instructions (instruction_id, recipe_id, instruction_text, order_index, 
+                    estimated_time, created_at)
 ```
 
 ## Quick Start
@@ -74,6 +99,22 @@ sessions (session_id, user_id, expires_at, flash_message)
 
 The application will be available at `http://localhost:8080` with hot-reload enabled.
 
+### Command Line Interface
+
+Pippaothy includes a powerful CLI with multiple commands:
+
+- **Server**: `./pippaothy serve` - Start the web server
+- **Recipe Scraping**: `./pippaothy scraper [command]` - Recipe import utilities
+  - `list` - Scrape recipe list from all pages
+  - `list-page <page>` - Scrape specific page
+  - `list-range <start> <end>` - Scrape page range
+  - `detail <url>` - Scrape specific recipe URL
+  - `import` - Import all scraped recipes to database
+  - `import-range <start> <end>` - Import specific page range
+  - `import-user <user-id>` - Import recipes for specific user
+  - `import-all` - Import all categories from recipe index
+  - `list-categories` - List available recipe categories
+
 ## Development Commands
 
 ### Building and Running
@@ -95,44 +136,77 @@ The application will be available at `http://localhost:8080` with hot-reload ena
 ```
 pippaothy/
 ├── cmd/
-│   └── main.go                 # Application entry point
+│   ├── main.go                 # Application entry point
+│   ├── root.go                 # CLI root command setup
+│   ├── serve.go                # Web server command
+│   ├── scraper.go              # Recipe scraping commands
+│   └── scraper/
+│       └── main.go             # Scraper implementation
 ├── internal/
-│   ├── auth/                   # Authentication logic
-│   │   └── session.go
-│   ├── database/               # Database connection and setup
-│   │   └── init.go
-│   ├── ipinfo/                 # IP geolocation service
-│   │   └── geolocation.go
-│   ├── logs/                   # Log processing utilities
+│   ├── auth/                   # Authentication and security
+│   │   └── session.go          # Sessions, CSRF, cookies
+│   ├── database/               # Database management
+│   │   └── init.go             # Connection, pooling, migrations
+│   ├── logs/                   # Logging utilities
 │   │   └── logs.go
+│   ├── recipes/                # Recipe business logic
+│   │   └── recipes.go          # CRUD operations, validation
 │   ├── server/                 # HTTP server implementation
 │   │   ├── server.go           # Server setup and lifecycle
-│   │   ├── routes.go           # Route handlers
-│   │   └── middleware.go       # Authentication and logging middleware
-│   ├── templates/              # Templ template files
-│   │   ├── base.templ          # Base layout and home page
-│   │   ├── auth.templ          # Login and registration forms
-│   │   └── simple-logs.templ   # Log viewing interface
+│   │   ├── middleware.go       # Auth, CSRF, logging middleware
+│   │   ├── routes.go           # Route definitions (legacy)
+│   │   └── recipes_handlers.go # Recipe HTTP handlers
+│   ├── templates/              # Type-safe HTML templates
+│   │   ├── base.templ          # Layout and navigation
+│   │   ├── auth.templ          # Login/registration forms
+│   │   ├── recipes.templ       # Recipe management UI
+│   │   ├── simple-logs.templ   # Log viewing interface
+│   │   └── *_templ.go          # Generated template code
 │   └── users/                  # User management
-│       └── user.go
+│       └── user.go             # User CRUD, validation, auth
 ├── schema/
-│   └── model.sql               # PostgreSQL database schema
+│   └── model.sql               # Complete PostgreSQL schema
 ├── static/
 │   ├── css/
-│   │   ├── input.css           # Tailwind CSS source
+│   │   ├── input.css           # Tailwind source with custom styles
 │   │   └── output.css          # Generated CSS (build artifact)
-│   ├── fonts/                  # Custom fonts
-│   ├── images/                 # Static images
-│   └── js/                     # JavaScript libraries (HTMX)
-├── k3s/                        # Kubernetes deployment manifests
-├── logs/                       # Application log files
-├── Dockerfile                  # Container build configuration
-├── Makefile                    # Build and development commands
-├── tailwind.config.js          # Tailwind CSS configuration
-└── CLAUDE.md                   # AI assistant instructions
+│   ├── fonts/                  # Comic Code Ligatures font
+│   ├── images/                 # Static assets
+│   └── js/                     # HTMX and extensions
+├── k3s/                        # Kubernetes deployment configs
+│   ├── pippaothy.yaml          # Deployment and service
+│   ├── ingress.yaml            # Load balancer and SSL
+│   ├── certificate.yaml        # Let's Encrypt certificate
+│   ├── letsencrypt-issuer.yaml # Certificate issuer
+│   └── metallb.yaml            # MetalLB configuration
+├── logs/                       # Application log output
+├── bin/                        # Built binaries
+├── tmp/                        # Build artifacts and temp files
+├── Dockerfile                  # Multi-stage container build
+├── Makefile                    # Build, dev, and asset commands
+├── tailwind.config.js          # Tailwind configuration
+├── test_idempotent.sh          # Scraper testing script
+├── deploy.sh                   # Deployment automation
+└── CLAUDE.md                   # AI development assistant config
 ```
 
 ## Key Features Deep Dive
+
+### Recipe Management System
+- **Recipe Creation**: Rich recipe editor with ingredients, instructions, and metadata
+- **Recipe Organization**: Categorization by cuisine, difficulty, prep/cook time, and custom tags
+- **Privacy Controls**: Public/private recipe visibility settings
+- **Recipe Validation**: Server-side validation for all recipe data
+- **Bulk Operations**: Efficient loading and management of recipe collections
+- **Source Attribution**: Support for both user-created and scraped recipes with source tracking
+
+### Web Scraping Engine
+- **Multi-source Support**: Designed to scrape recipes from various websites
+- **Idempotent Operations**: Prevents duplicate imports with URL-based deduplication
+- **Batch Processing**: Efficient import of large recipe collections
+- **Category Support**: Automatic categorization and tagging of imported recipes
+- **Error Handling**: Robust error recovery and logging for failed scrapes
+- **Testing Framework**: Built-in testing utilities for scraper validation
 
 ### Authentication System
 - **Registration**: Email validation, password strength requirements, duplicate prevention
@@ -200,15 +274,30 @@ Deployment manifests are provided in the `k3s/` directory:
 - `GET /` - Home page (redirects to login if not authenticated)
 - `GET /login` - Login form
 - `POST /login` - Process login
-- `GET /register` - Registration form
+- `GET /register` - Registration form  
 - `POST /register` - Process registration
-- `GET /health` - Health check
-- `GET /ready` - Readiness check
-- `GET /static/*` - Static assets
+- `GET /health` - Health check endpoint
+- `GET /ready` - Readiness check endpoint
+- `GET /static/*` - Static assets (CSS, JS, images, fonts)
+- `GET /recipes/public` - Browse public recipes (with optional authentication)
+- `GET /recipes/search` - Search public recipes (with optional authentication)
+- `GET /recipes/{id}` - View recipe details (public recipes or own recipes)
 
 ### Protected Routes (require authentication)
-- `POST /logout` - Process logout
-- `GET /logs` - Log viewer interface
+- `POST /logout` - Process logout and clear session
+- `GET /logs` - Log viewer interface with filtering
+- `GET /recipes` - User's personal recipe collection
+- `GET /recipes/new` - Create new recipe form
+- `POST /recipes` - Submit new recipe
+- `GET /recipes/{id}/edit` - Edit recipe form (own recipes only)
+- `PUT /recipes/{id}` - Update recipe (own recipes only)
+- `DELETE /recipes/{id}` - Delete recipe (own recipes only)
+
+### API Design Notes
+- **CSRF Protection**: All POST/PUT/DELETE requests require CSRF tokens
+- **Content Types**: Forms use `application/x-www-form-urlencoded`, API responses are HTML (HTMX)
+- **Error Handling**: Errors returned as HTML fragments for HTMX integration
+- **Authentication**: Session-based with automatic redirects for unauthorized access
 
 ## Contributing
 
@@ -218,22 +307,46 @@ Deployment manifests are provided in the `k3s/` directory:
 4. Ensure all tests pass and the application builds
 5. Submit a pull request
 
-## Code Quality Notes
+## Code Quality Analysis
 
-### Strengths
-- **Clean Architecture**: Well-organized package structure with clear separation of concerns
-- **Security-First**: Comprehensive security measures throughout the application
+### Architecture Strengths
+- **Clean Architecture**: Well-organized package structure following Go conventions
+- **Domain Separation**: Clear boundaries between auth, recipes, users, and server concerns
 - **Type Safety**: Leverages Go's type system and Templ for compile-time template checking
-- **Observability**: Excellent logging and monitoring capabilities
+- **Security-First Design**: Comprehensive security measures integrated throughout
+- **Observability**: Excellent structured logging with request tracing and context
 - **Modern Tooling**: Contemporary development workflow with hot-reload and asset watching
-- **Production Ready**: Health checks, graceful shutdown, and container support
 
 ### Technical Excellence
-- **Error Handling**: Proper error wrapping and contextual logging
-- **Database Management**: Connection pooling and prepared statements
-- **Middleware Pattern**: Clean request/response pipeline with composable middleware
-- **Context Usage**: Proper context propagation for request tracing and cancellation
-- **Resource Management**: Proper cleanup with defer statements and graceful shutdown
+- **Error Handling**: Consistent error wrapping with contextual information
+- **Database Design**: Proper normalization, constraints, and relationship management
+- **Connection Pooling**: Optimized database connection management with configurable limits
+- **Middleware Architecture**: Clean, composable request/response pipeline
+- **Context Propagation**: Proper context usage for request tracing and cancellation
+- **Resource Management**: Careful cleanup with defer statements and graceful shutdown
+- **Transaction Management**: Proper database transactions with rollback handling
+
+### Security Implementation
+- **Authentication**: Secure session-based authentication with proper token generation
+- **Password Security**: Salted hashing using scrypt with secure random salt generation
+- **CSRF Protection**: Comprehensive CSRF token validation for state-changing operations
+- **Input Validation**: Server-side validation and sanitization for all user inputs
+- **SQL Injection Prevention**: Consistent use of parameterized queries throughout
+- **Session Security**: Secure cookie configuration with HttpOnly and SameSite attributes
+
+### Development Quality
+- **CLI Design**: Well-structured command hierarchy using Cobra framework
+- **Build System**: Sophisticated Makefile with tool management and asset pipeline
+- **Container Support**: Multi-stage Docker build with security best practices
+- **Deployment Ready**: Kubernetes manifests with SSL, load balancing, and health checks
+- **Development Experience**: Hot-reload environment with automatic asset rebuilding
+
+### Areas for Improvement
+- **Test Coverage**: No test files found - comprehensive testing needed
+- **Error Consistency**: Mixed use of `errors.Join()` and `fmt.Errorf()` patterns
+- **Scraper Implementation**: CLI commands exist but core scraping logic needs completion
+- **Frontend Validation**: Client-side validation missing for better user experience
+- **API Documentation**: Could benefit from OpenAPI/Swagger documentation
 
 ## License
 

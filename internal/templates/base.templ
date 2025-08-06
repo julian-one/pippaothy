@@ -23,6 +23,8 @@ templ Layout(contents templ.Component, title string, loggedIn bool, csrfToken st
 							<a href="/register">Register</a>
 							<a href="/login">Login</a>
 						} else {
+							<a href="/recipes" class="hover:text-blue-600">My Recipes</a>
+							<a href="/recipes/public" class="hover:text-blue-600">Discover</a>
 							<form style="display: inline;">
 								<input type="hidden" name="csrf_token" value={ csrfToken }/>
 								<button
