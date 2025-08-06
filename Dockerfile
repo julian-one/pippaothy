@@ -1,28 +1,59 @@
-FROM golang:1.24
+# Build stage
+FROM golang:1.24-alpine AS builder
 
 WORKDIR /app
 
-RUN apt-get update && apt-get install -y gcc musl-dev sqlite3 libsqlite3-dev
+# Install only necessary build dependencies
+RUN apk add --no-cache ca-certificates curl gcompat
 
+# Copy go modules and download dependencies
 COPY go.mod go.sum ./
-RUN go mod tidy
+RUN go mod download
 
-RUN curl -sLO https://github.com/tailwindlabs/tailwindcss/releases/latest/download/tailwindcss-linux-arm64 \
-    && chmod +x tailwindcss-linux-arm64 \
-    && mv tailwindcss-linux-arm64 /usr/local/bin/tailwindcss
-
-COPY . .
-
+# Install build tools
 RUN go install github.com/a-h/templ/cmd/templ@latest
 
+# Install make
+RUN apk add --no-cache make
+
+# Copy source code
+COPY . .
+
+# Generate templates first
 RUN templ generate
 
-RUN tailwindcss -i ./static/css/input.css -o ./static/css/output.css
+# CSS is already built in the repository, skip building in Docker
 
-RUN CGO_ENABLED=1 GOOS=linux GOARCH=arm64 go build -o pippaothy ./cmd/main.go
+# Build the application
+RUN CGO_ENABLED=0 GOOS=linux go build -a -installsuffix cgo -o pippaothy ./cmd/main.go
 
-RUN chmod +x /app/pippaothy
+# Runtime stage
+FROM alpine:latest
+
+# Install runtime dependencies
+RUN apk --no-cache add ca-certificates tzdata
+
+# Create non-root user
+RUN addgroup -g 1001 -S appgroup && \
+    adduser -u 1001 -S appuser -G appgroup
+
+WORKDIR /app
+
+# Copy built application and static assets
+COPY --from=builder /app/pippaothy .
+COPY --from=builder /app/static ./static
+COPY --from=builder /app/schema ./schema
+
+# Change ownership to non-root user
+RUN chown -R appuser:appgroup /app
+
+# Switch to non-root user
+USER appuser
+
+# Health check
+HEALTHCHECK --interval=30s --timeout=3s --start-period=5s --retries=3 \
+    CMD wget --no-verbose --tries=1 --spider http://localhost:8080/health || exit 1
 
 EXPOSE 8080
 
-CMD ["/app/pippaothy"]
+CMD ["./pippaothy"]

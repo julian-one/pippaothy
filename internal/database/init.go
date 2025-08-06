@@ -5,6 +5,8 @@ import (
 	"fmt"
 	"io"
 	"os"
+	"strconv"
+	"time"
 
 	"github.com/jmoiron/sqlx"
 	_ "github.com/lib/pq"
@@ -26,10 +28,56 @@ func Create() (*sqlx.DB, error) {
 		return nil, errors.Join(errors.New("failed to open the database"), err)
 	}
 
+	// Configure connection pool settings
+	configureConnectionPool(db)
+
+	// Test the connection
+	if err := db.Ping(); err != nil {
+		return nil, errors.Join(errors.New("failed to ping database"), err)
+	}
+
 	if err = seed(db); err != nil {
 		return nil, errors.Join(errors.New("failed to seed the database"), err)
 	}
 	return db, nil
+}
+
+func configureConnectionPool(db *sqlx.DB) {
+	// Set maximum number of open connections to the database
+	maxOpenConns := getEnvInt("DB_MAX_OPEN_CONNS", 25)
+	db.SetMaxOpenConns(maxOpenConns)
+
+	// Set maximum number of idle connections in the pool
+	maxIdleConns := getEnvInt("DB_MAX_IDLE_CONNS", 5)
+	db.SetMaxIdleConns(maxIdleConns)
+
+	// Set maximum amount of time a connection may be reused
+	connMaxLifetime := getEnvDuration("DB_CONN_MAX_LIFETIME", 5*time.Minute)
+	db.SetConnMaxLifetime(connMaxLifetime)
+
+	// Set maximum amount of time a connection may be idle
+	connMaxIdleTime := getEnvDuration("DB_CONN_MAX_IDLE_TIME", 1*time.Minute)
+	db.SetConnMaxIdleTime(connMaxIdleTime)
+}
+
+// Helper function to get integer environment variable with default
+func getEnvInt(key string, defaultValue int) int {
+	if value := os.Getenv(key); value != "" {
+		if intValue, err := strconv.Atoi(value); err == nil {
+			return intValue
+		}
+	}
+	return defaultValue
+}
+
+// Helper function to get duration environment variable with default
+func getEnvDuration(key string, defaultValue time.Duration) time.Duration {
+	if value := os.Getenv(key); value != "" {
+		if duration, err := time.ParseDuration(value); err == nil {
+			return duration
+		}
+	}
+	return defaultValue
 }
 
 func seed(db *sqlx.DB) error {
@@ -41,7 +89,7 @@ func seed(db *sqlx.DB) error {
 
 	data, err := io.ReadAll(f)
 	if err != nil {
-		return errors.Join(errors.New(""), err)
+		return errors.Join(errors.New("failed to read schema file"), err)
 	}
 	model := string(data)
 

@@ -1,6 +1,6 @@
 package templates
 
-templ Layout(contents templ.Component, title string, loggedIn bool) {
+templ Layout(contents templ.Component, title string, loggedIn bool, csrfToken string) {
 	<!DOCTYPE html>
 	<html lang="en">
 		<head>
@@ -10,6 +10,7 @@ templ Layout(contents templ.Component, title string, loggedIn bool) {
 			<link rel="stylesheet" href="/static/css/output.css"/>
 			<script src="/static/js/htmx.min.js"></script>
 			<script src="/static/js/htmx-ext-response-targets.js"></script>
+			<script src="/static/js/htmx-ext-sse.js"></script>
 		</head>
 		<body hx-ext="response-targets" class="min-h-screen grid grid-rows-[auto_1fr] bg-gray-50">
 			<nav class="p-4">
@@ -22,13 +23,19 @@ templ Layout(contents templ.Component, title string, loggedIn bool) {
 							<a href="/register">Register</a>
 							<a href="/login">Login</a>
 						} else {
-							<button
-								hx-post="/logout"
-								hx-target="body"
-								hx-swap="outerHTML"
-							>
-								Logout
-							</button>
+							<form style="display: inline;">
+								<input type="hidden" name="csrf_token" value={ csrfToken }/>
+								<button
+									type="submit"
+									hx-post="/logout"
+									hx-include="[name='csrf_token']"
+									hx-target="body"
+									hx-swap="outerHTML"
+									class="bg-red-600 text-white px-4 py-2 rounded hover:bg-red-700"
+								>
+									Logout
+								</button>
+							</form>
 						}
 					</div>
 				</div>
