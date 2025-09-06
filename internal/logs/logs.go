@@ -41,10 +41,10 @@ type LogResult struct {
 
 // Get log file path with fallback
 func GetLogFilePath() string {
-	if _, err := os.Stat("/mnt/ssd/logs/app.log"); err == nil {
-		return "/mnt/ssd/logs/app.log"
+	if _, err := os.Stat("/mnt/ssd/logs/access.log"); err == nil {
+		return "/mnt/ssd/logs/access.log"
 	}
-	return "./logs/app.log"
+	return "./logs/access.log"
 }
 
 // Parse query parameters from HTTP request
@@ -78,9 +78,16 @@ func ParseQuery(r *http.Request) LogQuery {
 func parseLogLine(line string) (LogEntry, bool) {
 	var entry LogEntry
 	if err := json.Unmarshal([]byte(line), &entry); err != nil {
-		// If not JSON, create a simple entry
+		// If not JSON, try to extract timestamp from line or use zero time
+		timestamp := time.Time{}
+		if len(line) > 25 {
+			// Try to parse common timestamp formats at beginning of line
+			if t, parseErr := time.Parse("2006-01-02T15:04:05", line[:19]); parseErr == nil {
+				timestamp = t
+			}
+		}
 		entry = LogEntry{
-			Timestamp: time.Now(),
+			Timestamp: timestamp,
 			Level:     "info",
 			Message:   line,
 		}
@@ -99,7 +106,7 @@ func matchesFilters(entry LogEntry, query LogQuery) bool {
 // Get recent log entries - simplified approach
 func GetLogs(query LogQuery) LogResult {
 	logFile := GetLogFilePath()
-	
+
 	// Check if file exists
 	if _, err := os.Stat(logFile); os.IsNotExist(err) {
 		return LogResult{
@@ -126,7 +133,7 @@ func GetLogs(query LogQuery) LogResult {
 	// Read all matching entries (simplified - no streaming complexity)
 	var allEntries []LogEntry
 	scanner := bufio.NewScanner(file)
-	
+
 	for scanner.Scan() {
 		line := strings.TrimSpace(scanner.Text())
 		if line == "" {
@@ -162,7 +169,7 @@ func GetLogs(query LogQuery) LogResult {
 	// Handle grouping if requested
 	if query.GroupBy != "" {
 		groups := make(map[string][]LogEntry)
-		
+
 		for _, entry := range allEntries {
 			var key string
 			switch query.GroupBy {
@@ -181,7 +188,7 @@ func GetLogs(query LogQuery) LogResult {
 			}
 			groups[key] = append(groups[key], entry)
 		}
-		
+
 		return LogResult{
 			Groups:  groups,
 			Page:    query.Page,
@@ -190,32 +197,61 @@ func GetLogs(query LogQuery) LogResult {
 		}
 	}
 
-	// Simple pagination
-	total := len(allEntries)
-	start := (query.Page - 1) * query.Limit
-	end := start + query.Limit
+	return paginate(allEntries, query.Page, query.Limit)
+}
 
-	if start >= total {
-		return LogResult{
-			Entries: []LogEntry{},
-			Page:    query.Page,
-			Limit:   query.Limit,
-			HasMore: false,
-		}
-	}
-
-	if end > total {
-		end = total
-	}
-
-	entries := allEntries[start:end]
-	hasMore := end < total
-
-	return LogResult{
-		Entries: entries,
-		Page:    query.Page,
-		Limit:   query.Limit,
-		HasMore: hasMore,
+func reverseSlice(entries []LogEntry) {
+	for i := len(entries)/2 - 1; i >= 0; i-- {
+		opp := len(entries) - 1 - i
+		entries[i], entries[opp] = entries[opp], entries[i]
 	}
 }
 
+func groupEntries(entries []LogEntry, groupBy string) map[string][]LogEntry {
+	groups := make(map[string][]LogEntry)
+	for _, entry := range entries {
+		key := getGroupKey(entry, groupBy)
+		groups[key] = append(groups[key], entry)
+	}
+	return groups
+}
+
+func getGroupKey(entry LogEntry, groupBy string) string {
+	switch groupBy {
+	case "date":
+		return entry.Timestamp.Format("2006-01-02")
+	case "hour":
+		return entry.Timestamp.Format("2006-01-02 15h")
+	case "ip":
+		if entry.ClientIP != "" {
+			return entry.ClientIP
+		}
+		return "No IP"
+	default:
+		return "Unknown"
+	}
+}
+
+func paginate(entries []LogEntry, page, limit int) LogResult {
+	total := len(entries)
+	start := (page - 1) * limit
+	
+	if start >= total {
+		return LogResult{
+			Page:  page,
+			Limit: limit,
+		}
+	}
+	
+	end := start + limit
+	if end > total {
+		end = total
+	}
+	
+	return LogResult{
+		Entries: entries[start:end],
+		Page:    page,
+		Limit:   limit,
+		HasMore: end < total,
+	}
+}

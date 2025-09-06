@@ -3,6 +3,7 @@ package users
 import (
 	"crypto/rand"
 	"crypto/subtle"
+	"database/sql"
 	"encoding/base64"
 	"errors"
 	"fmt"
@@ -32,6 +33,15 @@ type CreateRequest struct {
 	LastName  string `json:"last_name"`
 	Email     string `json:"email"`
 	Password  string `json:"password"`
+}
+
+type PasswordReset struct {
+	ResetId   int64     `db:"reset_id"`
+	UserId    int64     `db:"user_id"`
+	Token     string    `db:"token"`
+	ExpiresAt time.Time `db:"expires_at"`
+	Used      bool      `db:"used"`
+	CreatedAt time.Time `db:"created_at"`
 }
 
 // Validation functions
@@ -81,7 +91,7 @@ func ValidatePassword(password string) error {
 	if len(password) > 128 {
 		return errors.New("password is too long (max 128 characters)")
 	}
-	
+
 	var hasUpper, hasLower, hasDigit, hasSpecial bool
 	for _, r := range password {
 		switch {
@@ -95,7 +105,7 @@ func ValidatePassword(password string) error {
 			hasSpecial = true
 		}
 	}
-	
+
 	var missing []string
 	if !hasUpper {
 		missing = append(missing, "uppercase letter")
@@ -109,11 +119,11 @@ func ValidatePassword(password string) error {
 	if !hasSpecial {
 		missing = append(missing, "special character")
 	}
-	
+
 	if len(missing) > 0 {
 		return fmt.Errorf("password must contain at least one: %s", strings.Join(missing, ", "))
 	}
-	
+
 	return nil
 }
 
@@ -143,7 +153,7 @@ func ByEmail(db *sqlx.DB, email string) (*User, error) {
 	var u User
 	err := db.Get(&u, `SELECT * FROM users WHERE email = $1`, email)
 	if err != nil {
-		return nil, errors.New("failed to get user by email")
+		return nil, fmt.Errorf("failed to get user by email: %w", err)
 	}
 	return &u, nil
 }
@@ -159,7 +169,7 @@ func Exists(db *sqlx.DB, email string) bool {
 func Create(db *sqlx.DB, request CreateRequest) (int64, error) {
 	h, s, err := hash(request.Password, nil)
 	if err != nil {
-		return 0, errors.Join(errors.New("failed to hash password"), err)
+		return 0, fmt.Errorf("failed to hash password: %w", err)
 	}
 	var uid int64
 	err = db.QueryRow(
@@ -167,7 +177,7 @@ func Create(db *sqlx.DB, request CreateRequest) (int64, error) {
 		request.FirstName, request.LastName, request.Email, h, s,
 	).Scan(&uid)
 	if err != nil {
-		return 0, errors.Join(errors.New("failed to create user"), err)
+		return 0, fmt.Errorf("failed to create user: %w", err)
 	}
 	return uid, nil
 }
@@ -185,13 +195,109 @@ func hash(password string, salt []byte) (string, []byte, error) {
 	if salt == nil {
 		salt = make([]byte, 32)
 		if _, err := rand.Read(salt); err != nil {
-			return "", nil, errors.Join(errors.New("failed to generate salt"), err)
+			return "", nil, fmt.Errorf("failed to generate salt: %w", err)
 		}
 	}
 
 	hash, err := scrypt.Key([]byte(password), salt, 16384, 8, 1, 32)
 	if err != nil {
-		return "", nil, errors.Join(errors.New("failed to create key"), err)
+		return "", nil, fmt.Errorf("failed to create key: %w", err)
 	}
 	return base64.StdEncoding.EncodeToString(hash), salt, nil
+}
+
+func generateResetToken() (string, error) {
+	bytes := make([]byte, 32)
+	if _, err := rand.Read(bytes); err != nil {
+		return "", fmt.Errorf("failed to generate reset token: %w", err)
+	}
+	return base64.URLEncoding.EncodeToString(bytes), nil
+}
+
+func CreatePasswordReset(db *sqlx.DB, email string) (string, error) {
+	user, err := ByEmail(db, email)
+	if err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			return "", nil
+		}
+		return "", fmt.Errorf("failed to find user: %w", err)
+	}
+
+	token, err := generateResetToken()
+	if err != nil {
+		return "", err
+	}
+
+	expiresAt := time.Now().Add(time.Hour)
+
+	_, err = db.Exec(`
+		INSERT INTO password_resets (user_id, token, expires_at) 
+		VALUES ($1, $2, $3)`,
+		user.UserId, token, expiresAt,
+	)
+	if err != nil {
+		return "", fmt.Errorf("failed to create password reset: %w", err)
+	}
+
+	return token, nil
+}
+
+func ValidateResetToken(db *sqlx.DB, token string) (*PasswordReset, error) {
+	var reset PasswordReset
+	err := db.Get(&reset, `
+		SELECT * FROM password_resets 
+		WHERE token = $1 AND expires_at > NOW() AND used = false`,
+		token,
+	)
+	if err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			return nil, errors.New("invalid or expired reset token")
+		}
+		return nil, fmt.Errorf("failed to validate reset token: %w", err)
+	}
+	return &reset, nil
+}
+
+func ResetPassword(db *sqlx.DB, token, newPassword string) error {
+	reset, err := ValidateResetToken(db, token)
+	if err != nil {
+		return err
+	}
+
+	if err := ValidatePassword(newPassword); err != nil {
+		return err
+	}
+
+	hashed, salt, err := hash(newPassword, nil)
+	if err != nil {
+		return fmt.Errorf("failed to hash new password: %w", err)
+	}
+
+	tx, err := db.Beginx()
+	if err != nil {
+		return fmt.Errorf("failed to begin transaction: %w", err)
+	}
+	defer tx.Rollback()
+
+	_, err = tx.Exec(`
+		UPDATE users 
+		SET password_hash = $1, salt = $2, updated_at = CURRENT_TIMESTAMP 
+		WHERE user_id = $3`,
+		hashed, salt, reset.UserId,
+	)
+	if err != nil {
+		return fmt.Errorf("failed to update password: %w", err)
+	}
+
+	_, err = tx.Exec(`
+		UPDATE password_resets 
+		SET used = true 
+		WHERE reset_id = $1`,
+		reset.ResetId,
+	)
+	if err != nil {
+		return fmt.Errorf("failed to mark reset token as used: %w", err)
+	}
+
+	return tx.Commit()
 }

@@ -3,29 +3,23 @@ FROM golang:1.24-alpine AS builder
 
 WORKDIR /app
 
-# Install only necessary build dependencies
-RUN apk add --no-cache ca-certificates curl gcompat
+# Install all build dependencies in one layer
+RUN apk add --no-cache ca-certificates curl gcompat make && \
+    go install github.com/a-h/templ/cmd/templ@latest
 
-# Copy go modules and download dependencies
+# Copy go modules first for better caching
 COPY go.mod go.sum ./
 RUN go mod download
 
-# Install build tools
-RUN go install github.com/a-h/templ/cmd/templ@latest
+# Copy only necessary source files (not entire context)
+COPY cmd/ ./cmd/
+COPY internal/ ./internal/
+COPY schema/ ./schema/
+COPY static/ ./static/
 
-# Install make
-RUN apk add --no-cache make
-
-# Copy source code
-COPY . .
-
-# Generate templates first
-RUN templ generate
-
-# CSS is already built in the repository, skip building in Docker
-
-# Build the application
-RUN CGO_ENABLED=0 GOOS=linux go build -a -installsuffix cgo -o pippaothy ./cmd/main.go
+# Generate templates and build in one RUN to reduce layers
+RUN templ generate && \
+    CGO_ENABLED=0 GOOS=linux GOARCH=arm64 go build -ldflags="-w -s" -o pippaothy ./cmd/main.go
 
 # Runtime stage
 FROM alpine:latest
@@ -56,4 +50,4 @@ HEALTHCHECK --interval=30s --timeout=3s --start-period=5s --retries=3 \
 
 EXPOSE 8080
 
-CMD ["./pippaothy"]
+CMD ["./pippaothy", "serve"]

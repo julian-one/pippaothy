@@ -1,0 +1,52 @@
+# Git
+.git
+.gitignore
+
+# Go
+*.test
+*.out
+vendor/
+
+# Build artifacts
+pippaothy
+bin/
+dist/
+
+# Development files
+.env
+*.env
+.env.*
+!.env.example
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Documentation
+*.md
+README*
+LICENSE
+docs/
+
+# CI/CD
+.github/
+k3s/
+deploy.sh
+
+# Temp files
+tmp/
+temp/
+*.tmp
+*.log
+
+# Node (if any)
+node_modules/
+package*.json
+tailwind.config.js

@@ -4,6 +4,7 @@ import (
 	"context"
 	"crypto/rand"
 	"encoding/hex"
+	"fmt"
 	"net/http"
 	"pippaothy/internal/auth"
 	"pippaothy/internal/users"
@@ -17,7 +18,6 @@ const (
 	userContextKey         contextKey = "authenticatedUser"
 	flashMessageContextKey contextKey = "flashMessage"
 	requestIDContextKey    contextKey = "requestID"
-	csrfTokenContextKey    contextKey = "csrfToken"
 )
 
 type responseWriter struct {
@@ -40,7 +40,10 @@ func (rw *responseWriter) Write(b []byte) (int, error) {
 // generateRequestID creates a unique request ID for tracing
 func generateRequestID() string {
 	bytes := make([]byte, 8)
-	rand.Read(bytes)
+	if _, err := rand.Read(bytes); err != nil {
+		// Fallback to timestamp-based ID if random generation fails
+		return fmt.Sprintf("%x", time.Now().UnixNano())
+	}
 	return hex.EncodeToString(bytes)
 }
 
@@ -53,12 +56,12 @@ func getClientIP(r *http.Request) string {
 			return strings.TrimSpace(parts[0])
 		}
 	}
-	
+
 	// Check X-Real-IP header
 	if xri := r.Header.Get("X-Real-IP"); xri != "" {
 		return xri
 	}
-	
+
 	// Fallback to RemoteAddr, stripping port if present
 	ip := r.RemoteAddr
 	if idx := strings.LastIndex(ip, ":"); idx != -1 {
@@ -98,24 +101,23 @@ func (s *Server) withLogging(next http.HandlerFunc) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		start := time.Now()
 		requestID := generateRequestID()
-		
+
 		// Add request ID to context for downstream handlers
 		ctx := context.WithValue(r.Context(), requestIDContextKey, requestID)
 		r = r.WithContext(ctx)
-		
+
 		// Extract client information
 		clientIP := getClientIP(r)
 		userAgent := r.UserAgent()
 		referer := r.Referer()
 		isStatic := isStaticAsset(r.URL.Path)
-		
-		
+
 		// Get content length for request body size
 		contentLength := r.ContentLength
 		if contentLength < 0 {
 			contentLength = 0
 		}
-		
+
 		// Build base log fields
 		baseFields := []interface{}{
 			"request_id", requestID,
@@ -130,12 +132,12 @@ func (s *Server) withLogging(next http.HandlerFunc) http.HandlerFunc {
 			"protocol", r.Proto,
 			"host", r.Host,
 		}
-		
+
 		// Add authenticated user info if available
 		if user := s.getCtxUser(r); user != nil {
 			baseFields = append(baseFields, "user_id", user.UserId, "username", user.Email)
 		}
-		
+
 		// Log request start (only for non-static assets in debug mode)
 		if !isStatic {
 			s.logger.Debug("HTTP request started", baseFields...)
@@ -164,7 +166,7 @@ func (s *Server) withLogging(next http.HandlerFunc) http.HandlerFunc {
 		// Calculate metrics
 		duration := time.Since(start)
 		statusCategory := getStatusCategory(wrapper.statusCode)
-		
+
 		// Build response log fields
 		responseFields := append(baseFields,
 			"status", wrapper.statusCode,
@@ -174,11 +176,11 @@ func (s *Server) withLogging(next http.HandlerFunc) http.HandlerFunc {
 			"duration_us", duration.Microseconds(),
 			"duration", duration.String(),
 		)
-		
+
 		// Determine log level and message based on response
 		logLevel := "info"
 		message := "HTTP request completed"
-		
+
 		switch {
 		case wrapper.statusCode >= 500:
 			logLevel = "error"
@@ -193,7 +195,7 @@ func (s *Server) withLogging(next http.HandlerFunc) http.HandlerFunc {
 			logLevel = "debug"
 			message = "Static asset served"
 		}
-		
+
 		// Log the response
 		switch logLevel {
 		case "error":
@@ -205,7 +207,7 @@ func (s *Server) withLogging(next http.HandlerFunc) http.HandlerFunc {
 		default:
 			s.logger.Info(message, responseFields...)
 		}
-		
+
 		// Add response headers for debugging
 		w.Header().Set("X-Request-ID", requestID)
 		if duration > time.Second {
@@ -233,16 +235,9 @@ func (s *Server) getFlashMessage(r *http.Request) string {
 	return ""
 }
 
-func (s *Server) getCSRFToken(r *http.Request) string {
-	if token, ok := r.Context().Value(csrfTokenContextKey).(string); ok {
-		return token
-	}
-	return ""
-}
-
 func (s *Server) setFlashMessage(token, message string) {
 	if err := auth.SetFlashMessage(s.db, token, message); err != nil {
-		s.logger.Error("failed to set flash message", 
+		s.logger.Error("failed to set flash message",
 			"error", err,
 			"session_token", token[:8]+"...", // Only log partial token for security
 		)
@@ -271,24 +266,14 @@ func (s *Server) withAuth(next http.HandlerFunc) http.HandlerFunc {
 					"username", user.Email,
 				)
 			}
-			
+
 			flashMessage, _ = auth.GetAndClearFlashMessage(s.db, cookie.Value)
 		} else {
 			s.logger.Debug("no session cookie found", "request_id", requestID)
 		}
 
-		// Generate CSRF token for forms
-		csrfToken, err := auth.GenerateCSRFToken()
-		if err != nil {
-			s.logger.Error("failed to generate CSRF token", "error", err)
-			csrfToken = ""
-		} else {
-			auth.SetCSRFCookie(w, csrfToken)
-		}
-
 		ctx := context.WithValue(r.Context(), userContextKey, user)
 		ctx = context.WithValue(ctx, flashMessageContextKey, flashMessage)
-		ctx = context.WithValue(ctx, csrfTokenContextKey, csrfToken)
 		next(w, r.WithContext(ctx))
 	}
 }
@@ -329,15 +314,6 @@ func (s *Server) requireAuth(next http.HandlerFunc) http.HandlerFunc {
 			return
 		}
 
-		// Generate CSRF token for forms
-		csrfToken, err := auth.GenerateCSRFToken()
-		if err != nil {
-			s.logger.Error("failed to generate CSRF token", "error", err)
-			csrfToken = ""
-		} else {
-			auth.SetCSRFCookie(w, csrfToken)
-		}
-
 		// Log successful authentication
 		s.logger.Debug("authentication successful",
 			"request_id", requestID,
@@ -349,28 +325,6 @@ func (s *Server) requireAuth(next http.HandlerFunc) http.HandlerFunc {
 		// Add user to context and continue
 		ctx := context.WithValue(r.Context(), userContextKey, user)
 		ctx = context.WithValue(ctx, flashMessageContextKey, flashMessage)
-		ctx = context.WithValue(ctx, csrfTokenContextKey, csrfToken)
 		next(w, r.WithContext(ctx))
-	}
-}
-
-func (s *Server) requireCSRF(next http.HandlerFunc) http.HandlerFunc {
-	return func(w http.ResponseWriter, r *http.Request) {
-		// Only validate CSRF for POST requests
-		if r.Method == "POST" {
-			if !auth.ValidateCSRFToken(r) {
-				s.logger.Warn("CSRF validation failed",
-					"request_id", s.getRequestID(r),
-					"client_ip", getClientIP(r),
-					"path", r.URL.Path,
-					"method", r.Method,
-				)
-				w.Header().Set("Content-Type", "text/html")
-				w.WriteHeader(http.StatusForbidden)
-				w.Write([]byte(`<div class="error">CSRF token validation failed</div>`))
-				return
-			}
-		}
-		next(w, r)
 	}
 }

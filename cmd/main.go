@@ -9,6 +9,7 @@ import (
 	"pippaothy/internal/server"
 	"syscall"
 
+	"github.com/joho/godotenv"
 	"github.com/spf13/cobra"
 )
 
@@ -26,13 +27,6 @@ var serveCmd = &cobra.Command{
 	Run:   runServe,
 }
 
-var scraperCmd = &cobra.Command{
-	Use:   "scraper",
-	Short: "Run recipe scraper utilities",
-	Long:  `Run Half Baked Harvest recipe scraper (see hbh-scraper binary)`,
-	Run:   runScraper,
-}
-
 func main() {
 	if err := rootCmd.Execute(); err != nil {
 		os.Exit(1)
@@ -41,10 +35,14 @@ func main() {
 
 func init() {
 	rootCmd.AddCommand(serveCmd)
-	rootCmd.AddCommand(scraperCmd)
 }
 
 func runServe(cmd *cobra.Command, args []string) {
+	// Load environment variables from .env file if it exists
+	if err := godotenv.Load(); err != nil {
+		slog.Debug("No .env file found or error loading it", "error", err)
+	}
+
 	// Initialize logger
 	logger := slog.Default()
 
@@ -79,10 +77,4 @@ func runServe(cmd *cobra.Command, args []string) {
 		logger.Error("Server error", "error", err)
 		os.Exit(1)
 	}
-}
-
-func runScraper(cmd *cobra.Command, args []string) {
-	slog.Info("Scraper command called - use the hbh-scraper binary for recipe scraping")
-	slog.Info("Build scraper: make build-scraper")
-	slog.Info("Usage: ./bin/hbh-scraper --help")
 }

@@ -47,6 +47,17 @@ spec:
                 secretKeyRef:
                   name: db-credentials
                   key: DB_PORT
+            - name: RESEND_API_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: email-credentials
+                  key: RESEND_API_KEY
+            - name: FROM_EMAIL
+              value: "noreply@pippaothy.com"
+            - name: GO_ENV
+              value: "production"
+            - name: TLS_ENABLED
+              value: "true"
           volumeMounts:
             - name: ssd-storage
               mountPath: /mnt/ssd

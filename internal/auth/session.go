@@ -4,7 +4,7 @@ import (
 	"crypto/rand"
 	"database/sql"
 	"encoding/base64"
-	"errors"
+	"fmt"
 	"net/http"
 	"os"
 	"pippaothy/internal/users"
@@ -24,22 +24,16 @@ type Session struct {
 // isProduction checks if the application is running in production mode
 // based on environment variables
 func isProduction() bool {
-	env := strings.ToLower(os.Getenv("ENVIRONMENT"))
+	env := strings.ToLower(os.Getenv("GO_ENV"))
 	if env == "production" || env == "prod" {
 		return true
 	}
-	
-	// Also check GO_ENV (common convention)
-	goEnv := strings.ToLower(os.Getenv("GO_ENV"))
-	if goEnv == "production" || goEnv == "prod" {
-		return true
-	}
-	
+
 	// Check if TLS_ENABLED is explicitly set
 	if strings.ToLower(os.Getenv("TLS_ENABLED")) == "true" {
 		return true
 	}
-	
+
 	return false
 }
 
@@ -55,7 +49,7 @@ func generateToken() (string, error) {
 func CreateSession(db *sqlx.DB, userId int64) (string, error) {
 	token, err := generateToken()
 	if err != nil {
-		return "", errors.Join(errors.New("failed to generate token"), err)
+		return "", fmt.Errorf("failed to generate token: %w", err)
 	}
 	expiresAt := time.Now().Add(24 * time.Hour)
 	_, err = db.Exec(
@@ -65,7 +59,7 @@ func CreateSession(db *sqlx.DB, userId int64) (string, error) {
 		expiresAt,
 	)
 	if err != nil {
-		return "", errors.Join(errors.New("failed to create session"), err)
+		return "", fmt.Errorf("failed to create session: %w", err)
 	}
 	return token, nil
 }
@@ -83,7 +77,7 @@ func GetSession(db *sqlx.DB, token string) (*users.User, error) {
 		WHERE s.session_id = $1 AND s.expires_at > $2`,
 		token, time.Now().UTC())
 	if err != nil {
-		return nil, errors.New("invalid session")
+		return nil, fmt.Errorf("invalid session: %w", err)
 	}
 	return &user, nil
 }
@@ -94,7 +88,7 @@ func SetCookie(w http.ResponseWriter, token string) {
 	if isSecure {
 		sameSite = http.SameSiteStrictMode // Use Strict in production for better security
 	}
-	
+
 	http.SetCookie(w, &http.Cookie{
 		Name:     "session_token",
 		Value:    token,
@@ -112,7 +106,7 @@ func ResetCookie(w http.ResponseWriter) {
 	if isSecure {
 		sameSite = http.SameSiteStrictMode
 	}
-	
+
 	http.SetCookie(w, &http.Cookie{
 		Name:     "session_token",
 		Value:    "",
@@ -122,69 +116,6 @@ func ResetCookie(w http.ResponseWriter) {
 		Secure:   isSecure, // Dynamic based on environment
 		SameSite: sameSite, // Dynamic based on environment
 	})
-}
-
-// CSRF token functions
-func GenerateCSRFToken() (string, error) {
-	b := make([]byte, 32)
-	_, err := rand.Read(b)
-	if err != nil {
-		return "", err
-	}
-	return base64.URLEncoding.EncodeToString(b), nil
-}
-
-func SetCSRFCookie(w http.ResponseWriter, token string) {
-	isSecure := isProduction()
-	sameSite := http.SameSiteLaxMode
-	if isSecure {
-		sameSite = http.SameSiteStrictMode // Use Strict in production for better security
-	}
-	
-	http.SetCookie(w, &http.Cookie{
-		Name:     "csrf_token",
-		Value:    token,
-		Path:     "/",
-		Expires:  time.Now().Add(24 * time.Hour),
-		HttpOnly: false, // Must be accessible to JavaScript for forms
-		Secure:   isSecure, // Dynamic based on environment
-		SameSite: sameSite, // Dynamic based on environment
-	})
-}
-
-func ValidateCSRFToken(r *http.Request) bool {
-	// Get token from cookie
-	cookie, err := r.Cookie("csrf_token")
-	if err != nil {
-		// Debug: log cookie error
-		return false
-	}
-	cookieToken := cookie.Value
-
-	// Get token from form or header
-	var formToken string
-	if r.Method == "POST" {
-		formToken = r.FormValue("csrf_token")
-		if formToken == "" {
-			// Try header as fallback
-			formToken = r.Header.Get("X-CSRF-Token")
-		}
-	}
-
-	// Debug: Check if tokens exist
-	if cookieToken == "" {
-		return false
-	}
-	if formToken == "" {
-		return false
-	}
-
-	// Compare tokens using constant time comparison
-	if len(cookieToken) != len(formToken) {
-		return false
-	}
-
-	return cookieToken == formToken && cookieToken != ""
 }
 
 func SetFlashMessage(db *sqlx.DB, token, message string) error {

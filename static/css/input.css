@@ -1,4 +1,58 @@
 @import "tailwindcss";
+@source "./internal/templates/**/*.{templ,go}";
+@plugin "./daisyui.js";
+
+/* Custom Vague theme based on Ghostty/Neovim color scheme */
+[data-theme="vague"] {
+  /* Base colors from Vague palette */
+  --color-base-100: oklch(13.5% 0.015 270);     /* #141415 - background */
+  --color-base-200: oklch(20% 0.02 270);        /* #252530 - palette 0 */
+  --color-base-300: oklch(45% 0.02 250);        /* #606079 - palette 8 */
+  --color-base-content: oklch(84% 0 0);         /* #cdcdcd - foreground */
+
+  /* Primary - Blue from palette */
+  --color-primary: oklch(63% 0.12 235);         /* #6e94b2 - palette 4 */
+  --color-primary-content: oklch(95% 0 0);      /* Light text on primary */
+
+  /* Secondary - Purple from palette */
+  --color-secondary: oklch(71% 0.10 310);       /* #bb9dbd - palette 5 */
+  --color-secondary-content: oklch(95% 0 0);    /* Light text on secondary */
+
+  /* Accent - Yellow/Amber from palette */
+  --color-accent: oklch(82% 0.15 85);           /* #f3be7c - palette 3 */
+  --color-accent-content: oklch(20% 0 0);       /* Dark text on accent */
+
+  /* Neutral - Gray/Cyan from palette */
+  --color-neutral: oklch(77% 0.05 260);         /* #aeaed1 - palette 6 */
+  --color-neutral-content: oklch(20% 0 0);      /* Dark text on neutral */
+
+  /* Info - Light Blue */
+  --color-info: oklch(68% 0.10 225);            /* #8ba9c1 - palette 12 */
+  --color-info-content: oklch(95% 0 0);         /* Light text on info */
+
+  /* Success - Green from palette */
+  --color-success: oklch(65% 0.15 130);         /* #7fa563 - palette 2 */
+  --color-success-content: oklch(95% 0 0);      /* Light text on success */
+
+  /* Warning - Orange/Yellow */
+  --color-warning: oklch(85% 0.14 85);          /* #f5cb96 - palette 11 */
+  --color-warning-content: oklch(20% 0 0);      /* Dark text on warning */
+
+  /* Error - Red/Pink from palette */
+  --color-error: oklch(65% 0.18 15);            /* #d8647e - palette 1 */
+  --color-error-content: oklch(95% 0 0);        /* Light text on error */
+
+  /* Additional customization */
+  --rounded-box: 0.5rem;
+  --rounded-btn: 0.375rem;
+  --rounded-badge: 0.25rem;
+  --animation-btn: 0.25s;
+  --animation-input: 0.2s;
+  --btn-focus-scale: 0.98;
+  --border-btn: 1px;
+  --tab-border: 1px;
+  --tab-radius: 0.5rem;
+}
 
 @font-face {
   font-family: "Comic Code";
