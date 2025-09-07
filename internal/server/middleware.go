@@ -6,10 +6,11 @@ import (
 	"encoding/hex"
 	"fmt"
 	"net/http"
-	"pippaothy/internal/auth"
-	"pippaothy/internal/users"
 	"strings"
 	"time"
+
+	"pippaothy/internal/auth"
+	"pippaothy/internal/users"
 )
 
 type contextKey string
@@ -113,13 +114,10 @@ func (s *Server) withLogging(next http.HandlerFunc) http.HandlerFunc {
 		isStatic := isStaticAsset(r.URL.Path)
 
 		// Get content length for request body size
-		contentLength := r.ContentLength
-		if contentLength < 0 {
-			contentLength = 0
-		}
+		contentLength := max(r.ContentLength, 0)
 
 		// Build base log fields
-		baseFields := []interface{}{
+		baseFields := []any{
 			"request_id", requestID,
 			"method", r.Method,
 			"path", r.URL.Path,
@@ -235,8 +233,8 @@ func (s *Server) getFlashMessage(r *http.Request) string {
 	return ""
 }
 
-func (s *Server) setFlashMessage(token, message string) {
-	if err := auth.SetFlashMessage(s.db, token, message); err != nil {
+func (s *Server) setFlashMessage(ctx context.Context, token, message string) {
+	if err := auth.SetFlashMessage(ctx, s.db, token, message); err != nil {
 		s.logger.Error("failed to set flash message",
 			"error", err,
 			"session_token", token[:8]+"...", // Only log partial token for security
@@ -252,7 +250,7 @@ func (s *Server) withAuth(next http.HandlerFunc) http.HandlerFunc {
 
 		if cookie, err := r.Cookie("session_token"); err == nil {
 			var sessionErr error
-			user, sessionErr = auth.GetSession(s.db, cookie.Value)
+			user, sessionErr = auth.GetSession(r.Context(), s.db, cookie.Value)
 			if sessionErr != nil {
 				s.logger.Debug("session lookup failed",
 					"request_id", requestID,
@@ -267,7 +265,7 @@ func (s *Server) withAuth(next http.HandlerFunc) http.HandlerFunc {
 				)
 			}
 
-			flashMessage, _ = auth.GetAndClearFlashMessage(s.db, cookie.Value)
+			flashMessage, _ = auth.GetAndClearFlashMessage(r.Context(), s.db, cookie.Value)
 		} else {
 			s.logger.Debug("no session cookie found", "request_id", requestID)
 		}
@@ -288,7 +286,7 @@ func (s *Server) requireAuth(next http.HandlerFunc) http.HandlerFunc {
 		// Check for session cookie
 		if cookie, err := r.Cookie("session_token"); err == nil {
 			var sessionErr error
-			user, sessionErr = auth.GetSession(s.db, cookie.Value)
+			user, sessionErr = auth.GetSession(r.Context(), s.db, cookie.Value)
 			if sessionErr != nil {
 				s.logger.Warn("authentication failed - invalid session",
 					"request_id", requestID,
@@ -298,7 +296,7 @@ func (s *Server) requireAuth(next http.HandlerFunc) http.HandlerFunc {
 					"session_token", cookie.Value[:8]+"...",
 				)
 			}
-			flashMessage, _ = auth.GetAndClearFlashMessage(s.db, cookie.Value)
+			flashMessage, _ = auth.GetAndClearFlashMessage(r.Context(), s.db, cookie.Value)
 		}
 
 		// Redirect if not authenticated

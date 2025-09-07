@@ -1,6 +1,7 @@
 package users
 
 import (
+	"context"
 	"crypto/rand"
 	"crypto/subtle"
 	"database/sql"
@@ -17,13 +18,20 @@ import (
 )
 
 type User struct {
-	UserId    int64      `db:"user_id" json:"user_id"`
-	FirstName string     `db:"first_name" json:"first_name"`
-	LastName  string     `db:"last_name" json:"last_name"`
-	Email     string     `db:"email" json:"email"`
-	Hash      string     `db:"password_hash" json:"password_hash"`
-	Salt      []byte     `db:"salt" json:"salt"`
-	LastLogin *time.Time `db:"last_login" json:"last_login"`
+	// Primary identifier
+	UserId int64 `db:"user_id" json:"user_id"`
+
+	// User information
+	FirstName string `db:"first_name" json:"first_name"`
+	LastName  string `db:"last_name"  json:"last_name"`
+	Email     string `db:"email"      json:"email"`
+
+	// Authentication
+	Hash string `db:"password_hash" json:"-"` // Never expose in JSON
+	Salt []byte `db:"salt"          json:"-"` // Never expose in JSON
+
+	// Timestamps
+	LastLogin *time.Time `db:"last_login" json:"last_login,omitempty"`
 	CreatedAt time.Time  `db:"created_at" json:"created_at"`
 	UpdatedAt time.Time  `db:"updated_at" json:"updated_at"`
 }
@@ -36,12 +44,19 @@ type CreateRequest struct {
 }
 
 type PasswordReset struct {
-	ResetId   int64     `db:"reset_id"`
-	UserId    int64     `db:"user_id"`
-	Token     string    `db:"token"`
-	ExpiresAt time.Time `db:"expires_at"`
-	Used      bool      `db:"used"`
-	CreatedAt time.Time `db:"created_at"`
+	// Primary identifier
+	ResetId int64 `db:"reset_id" json:"reset_id"`
+
+	// Relationships
+	UserId int64 `db:"user_id" json:"user_id"`
+
+	// Reset information
+	Token     string    `db:"token"      json:"-"` // Never expose token in JSON
+	ExpiresAt time.Time `db:"expires_at" json:"expires_at"`
+	Used      bool      `db:"used"       json:"used"`
+
+	// Timestamps
+	CreatedAt time.Time `db:"created_at" json:"created_at"`
 }
 
 // Validation functions
@@ -149,32 +164,37 @@ func (req *CreateRequest) Sanitize() {
 	req.Email = strings.TrimSpace(strings.ToLower(req.Email))
 }
 
-func ByEmail(db *sqlx.DB, email string) (*User, error) {
+func ByEmail(ctx context.Context, db *sqlx.DB, email string) (*User, error) {
 	var u User
-	err := db.Get(&u, `SELECT * FROM users WHERE email = $1`, email)
+	err := db.GetContext(ctx, &u, `SELECT * FROM users WHERE email = $1`, email)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get user by email: %w", err)
 	}
 	return &u, nil
 }
 
-func Exists(db *sqlx.DB, email string) bool {
+func Exists(ctx context.Context, db *sqlx.DB, email string) bool {
 	var exists bool
-	if err := db.Get(&exists, "SELECT EXISTS (SELECT 1 FROM users WHERE email = $1)", email); err != nil {
+	if err := db.GetContext(ctx, &exists, "SELECT EXISTS (SELECT 1 FROM users WHERE email = $1)", email); err != nil {
 		return false
 	}
 	return exists
 }
 
-func Create(db *sqlx.DB, request CreateRequest) (int64, error) {
+func Create(ctx context.Context, db *sqlx.DB, request CreateRequest) (int64, error) {
 	h, s, err := hash(request.Password, nil)
 	if err != nil {
 		return 0, fmt.Errorf("failed to hash password: %w", err)
 	}
 	var uid int64
-	err = db.QueryRow(
+	err = db.QueryRowContext(
+		ctx,
 		`INSERT INTO users (first_name, last_name, email, password_hash, salt) VALUES ($1, $2, $3, $4, $5) RETURNING user_id`,
-		request.FirstName, request.LastName, request.Email, h, s,
+		request.FirstName,
+		request.LastName,
+		request.Email,
+		h,
+		s,
 	).Scan(&uid)
 	if err != nil {
 		return 0, fmt.Errorf("failed to create user: %w", err)
@@ -214,8 +234,8 @@ func generateResetToken() (string, error) {
 	return base64.URLEncoding.EncodeToString(bytes), nil
 }
 
-func CreatePasswordReset(db *sqlx.DB, email string) (string, error) {
-	user, err := ByEmail(db, email)
+func CreatePasswordReset(ctx context.Context, db *sqlx.DB, email string) (string, error) {
+	user, err := ByEmail(ctx, db, email)
 	if err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
 			return "", nil
@@ -230,7 +250,7 @@ func CreatePasswordReset(db *sqlx.DB, email string) (string, error) {
 
 	expiresAt := time.Now().Add(time.Hour)
 
-	_, err = db.Exec(`
+	_, err = db.ExecContext(ctx, `
 		INSERT INTO password_resets (user_id, token, expires_at) 
 		VALUES ($1, $2, $3)`,
 		user.UserId, token, expiresAt,
@@ -242,9 +262,9 @@ func CreatePasswordReset(db *sqlx.DB, email string) (string, error) {
 	return token, nil
 }
 
-func ValidateResetToken(db *sqlx.DB, token string) (*PasswordReset, error) {
+func ValidateResetToken(ctx context.Context, db *sqlx.DB, token string) (*PasswordReset, error) {
 	var reset PasswordReset
-	err := db.Get(&reset, `
+	err := db.GetContext(ctx, &reset, `
 		SELECT * FROM password_resets 
 		WHERE token = $1 AND expires_at > NOW() AND used = false`,
 		token,
@@ -258,8 +278,8 @@ func ValidateResetToken(db *sqlx.DB, token string) (*PasswordReset, error) {
 	return &reset, nil
 }
 
-func ResetPassword(db *sqlx.DB, token, newPassword string) error {
-	reset, err := ValidateResetToken(db, token)
+func ResetPassword(ctx context.Context, db *sqlx.DB, token, newPassword string) error {
+	reset, err := ValidateResetToken(ctx, db, token)
 	if err != nil {
 		return err
 	}
@@ -273,13 +293,13 @@ func ResetPassword(db *sqlx.DB, token, newPassword string) error {
 		return fmt.Errorf("failed to hash new password: %w", err)
 	}
 
-	tx, err := db.Beginx()
+	tx, err := db.BeginTxx(ctx, nil)
 	if err != nil {
 		return fmt.Errorf("failed to begin transaction: %w", err)
 	}
 	defer tx.Rollback()
 
-	_, err = tx.Exec(`
+	_, err = tx.ExecContext(ctx, `
 		UPDATE users 
 		SET password_hash = $1, salt = $2, updated_at = CURRENT_TIMESTAMP 
 		WHERE user_id = $3`,
@@ -289,7 +309,7 @@ func ResetPassword(db *sqlx.DB, token, newPassword string) error {
 		return fmt.Errorf("failed to update password: %w", err)
 	}
 
-	_, err = tx.Exec(`
+	_, err = tx.ExecContext(ctx, `
 		UPDATE password_resets 
 		SET used = true 
 		WHERE reset_id = $1`,

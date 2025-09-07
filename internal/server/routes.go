@@ -1,17 +1,20 @@
 package server
 
 import (
+	"encoding/base64"
 	"encoding/json"
 	"fmt"
 	"net/http"
 	"os"
+	"strconv"
+	"strings"
+	"time"
+
 	"pippaothy/internal/auth"
 	"pippaothy/internal/email"
 	"pippaothy/internal/logs"
 	"pippaothy/internal/templates"
 	"pippaothy/internal/users"
-	"strings"
-	"time"
 )
 
 func (s *Server) getHome(w http.ResponseWriter, r *http.Request) {
@@ -58,12 +61,12 @@ func (s *Server) postRegister(w http.ResponseWriter, r *http.Request) {
 		s.logger.Warn("registration validation failed", "error", err)
 		w.Header().Set("Content-Type", "text/html")
 		w.WriteHeader(http.StatusBadRequest)
-		w.Write([]byte(fmt.Sprintf(`<div class="error">%s</div>`, err.Error())))
+		fmt.Fprintf(w, `<div class="error">%s</div>`, err.Error())
 		return
 	}
 
 	// Check if user already exists
-	if users.Exists(s.db, request.Email) {
+	if users.Exists(r.Context(), s.db, request.Email) {
 		s.logger.Warn("registration attempt with existing email", "email", request.Email)
 		w.Header().Set("Content-Type", "text/html")
 		w.WriteHeader(http.StatusConflict)
@@ -72,7 +75,7 @@ func (s *Server) postRegister(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Create user
-	uid, err := users.Create(s.db, request)
+	uid, err := users.Create(r.Context(), s.db, request)
 	if err != nil {
 		s.logger.Error("failed to create user", "error", err)
 		w.Header().Set("Content-Type", "text/html")
@@ -82,7 +85,7 @@ func (s *Server) postRegister(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Create session
-	token, err := auth.CreateSession(s.db, uid)
+	token, err := auth.CreateSession(r.Context(), s.db, uid)
 	if err != nil {
 		s.logger.Error("failed to create session", "error", err)
 		w.Header().Set("Content-Type", "text/html")
@@ -92,7 +95,7 @@ func (s *Server) postRegister(w http.ResponseWriter, r *http.Request) {
 	}
 
 	auth.SetCookie(w, token)
-	s.setFlashMessage(token, "Registration successful!")
+	s.setFlashMessage(r.Context(), token, "Registration successful!")
 	s.logger.Info("user registered successfully", "uid", uid)
 
 	w.Header().Set("HX-Redirect", "/")
@@ -136,7 +139,7 @@ func (s *Server) postLogin(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Get user by email
-	user, err := users.ByEmail(s.db, email)
+	user, err := users.ByEmail(r.Context(), s.db, email)
 	if err != nil {
 		s.logger.Warn("login failed - user not found", "email", email)
 		w.Header().Set("Content-Type", "text/html")
@@ -155,7 +158,7 @@ func (s *Server) postLogin(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Create session
-	token, err := auth.CreateSession(s.db, user.UserId)
+	token, err := auth.CreateSession(r.Context(), s.db, user.UserId)
 	if err != nil {
 		s.logger.Error("failed to create session", "error", err)
 		w.Header().Set("Content-Type", "text/html")
@@ -165,7 +168,7 @@ func (s *Server) postLogin(w http.ResponseWriter, r *http.Request) {
 	}
 
 	auth.SetCookie(w, token)
-	s.setFlashMessage(token, "Login successful!")
+	s.setFlashMessage(r.Context(), token, "Login successful!")
 	s.logger.Info("user logged in successfully", "uid", user.UserId)
 
 	w.Header().Set("HX-Redirect", "/")
@@ -175,7 +178,7 @@ func (s *Server) postLogin(w http.ResponseWriter, r *http.Request) {
 func (s *Server) postLogout(w http.ResponseWriter, r *http.Request) {
 	// Get session cookie and destroy session
 	if cookie, err := r.Cookie("session_token"); err == nil {
-		if err := auth.DestroySession(s.db, cookie.Value); err != nil {
+		if err := auth.DestroySession(r.Context(), s.db, cookie.Value); err != nil {
 			s.logger.Error("failed to destroy session", "error", err)
 			w.WriteHeader(http.StatusInternalServerError)
 			return
@@ -219,22 +222,96 @@ func (s *Server) postForgotPassword(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	honeypot := r.FormValue("website")
+	if honeypot != "" {
+		s.logger.Warn("honeypot triggered", "value", honeypot)
+		time.Sleep(2 * time.Second)
+		w.Header().Set("Content-Type", "text/html")
+		w.WriteHeader(http.StatusOK)
+		w.Write(
+			[]byte(
+				`<div class="success">If an account with that email exists, you will receive a password reset link shortly.</div>`,
+			),
+		)
+		return
+	}
+
+	renderTimeStr := r.FormValue("render_time")
+	if renderTimeStr != "" {
+		decoded, err := base64.StdEncoding.DecodeString(renderTimeStr)
+		if err == nil {
+			renderTimeUnix, err := strconv.ParseInt(string(decoded), 10, 64)
+			if err == nil {
+				renderTime := time.Unix(renderTimeUnix, 0)
+				elapsed := time.Since(renderTime)
+				if elapsed < 2*time.Second {
+					s.logger.Warn("form submitted too quickly", "elapsed", elapsed)
+					w.Header().Set("Content-Type", "text/html")
+					w.WriteHeader(http.StatusOK)
+					w.Write(
+						[]byte(
+							`<div class="success">If an account with that email exists, you will receive a password reset link shortly.</div>`,
+						),
+					)
+					return
+				}
+				if elapsed > 30*time.Minute {
+					s.logger.Warn("form submission too old", "elapsed", elapsed)
+					w.Header().Set("Content-Type", "text/html")
+					w.WriteHeader(http.StatusOK)
+					w.Write(
+						[]byte(
+							`<div class="error">Form expired. Please refresh the page and try again.</div>`,
+						),
+					)
+					return
+				}
+			}
+		}
+	}
+
 	emailAddr := strings.TrimSpace(strings.ToLower(r.FormValue("email")))
 
 	if err := users.ValidateEmail(emailAddr); err != nil {
 		s.logger.Warn("forgot password failed - invalid email format", "email", emailAddr)
 		w.Header().Set("Content-Type", "text/html")
-		w.WriteHeader(http.StatusBadRequest)
-		w.Write([]byte(`<div class="error">Invalid email format</div>`))
+		w.WriteHeader(http.StatusOK)
+		w.Write(
+			[]byte(
+				`<div class="success">If an account with that email exists, you will receive a password reset link shortly.</div>`,
+			),
+		)
 		return
 	}
 
-	token, err := users.CreatePasswordReset(s.db, emailAddr)
+	clientIP := getClientIP(r)
+
+	if err := s.rateLimiter.CheckPasswordReset(r.Context(), emailAddr, clientIP); err != nil {
+		s.logger.Warn("rate limit exceeded", "email", emailAddr, "ip", clientIP, "error", err)
+		w.Header().Set("Content-Type", "text/html")
+		w.WriteHeader(http.StatusTooManyRequests)
+		w.Write(
+			[]byte(
+				`<div class="error">Too many password reset attempts. Please try again later.</div>`,
+			),
+		)
+		return
+	}
+
+	if err := s.rateLimiter.RecordPasswordResetAttempt(r.Context(), emailAddr, clientIP); err != nil {
+		s.logger.Error("failed to record password reset attempt", "error", err)
+	}
+
+	token, err := users.CreatePasswordReset(r.Context(), s.db, emailAddr)
 	if err != nil {
 		s.logger.Error("failed to create password reset", "error", err, "email", emailAddr)
 		w.Header().Set("Content-Type", "text/html")
-		w.WriteHeader(http.StatusInternalServerError)
-		w.Write([]byte(`<div class="error">Failed to process request</div>`))
+		w.WriteHeader(http.StatusOK)
+		w.Write(
+			[]byte(
+				`<div class="success">If an account with that email exists, you will receive a password reset link shortly.</div>`,
+			),
+		)
 		return
 	}
 
@@ -247,13 +324,16 @@ func (s *Server) postForgotPassword(w http.ResponseWriter, r *http.Request) {
 			}
 
 			if err := emailService.SendPasswordResetEmail(emailAddr, token, baseURL); err != nil {
-				s.logger.Error("failed to send password reset email", "error", err, "email", emailAddr)
-				w.Header().Set("Content-Type", "text/html")
-				w.WriteHeader(http.StatusInternalServerError)
-				w.Write([]byte(`<div class="error">Failed to send email</div>`))
-				return
+				s.logger.Error(
+					"failed to send password reset email",
+					"error",
+					err,
+					"email",
+					emailAddr,
+				)
+			} else {
+				s.logger.Info("password reset email sent", "email", emailAddr)
 			}
-			s.logger.Info("password reset email sent", "email", emailAddr)
 		} else {
 			s.logger.Warn("email service not configured - password reset request ignored", "email", emailAddr)
 		}
@@ -261,7 +341,11 @@ func (s *Server) postForgotPassword(w http.ResponseWriter, r *http.Request) {
 
 	w.Header().Set("Content-Type", "text/html")
 	w.WriteHeader(http.StatusOK)
-	w.Write([]byte(`<div class="success">If an account with that email exists, you will receive a password reset link shortly.</div>`))
+	w.Write(
+		[]byte(
+			`<div class="success">If an account with that email exists, you will receive a password reset link shortly.</div>`,
+		),
+	)
 }
 
 func (s *Server) getResetPassword(w http.ResponseWriter, r *http.Request) {
@@ -274,7 +358,7 @@ func (s *Server) getResetPassword(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	_, err := users.ValidateResetToken(s.db, token)
+	_, err := users.ValidateResetToken(r.Context(), s.db, token)
 	if err != nil {
 		s.logger.Warn("invalid reset token accessed", "token", token, "error", err)
 		w.Header().Set("Content-Type", "text/html")
@@ -295,7 +379,7 @@ func (s *Server) getResetPassword(w http.ResponseWriter, r *http.Request) {
 			});
 		</script>
 	`, token)
-	
+
 	templates.Layout(component, "reset-password", false).Render(r.Context(), w)
 	w.Write([]byte(response))
 }
@@ -329,19 +413,23 @@ func (s *Server) postResetPassword(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	err := users.ResetPassword(s.db, token, password)
+	err := users.ResetPassword(r.Context(), s.db, token, password)
 	if err != nil {
 		s.logger.Warn("password reset failed", "error", err)
 		w.Header().Set("Content-Type", "text/html")
 		w.WriteHeader(http.StatusBadRequest)
-		w.Write([]byte(fmt.Sprintf(`<div class="error">%s</div>`, err.Error())))
+		fmt.Fprintf(w, `<div class="error">%s</div>`, err.Error())
 		return
 	}
 
 	s.logger.Info("password reset successful")
 	w.Header().Set("Content-Type", "text/html")
 	w.WriteHeader(http.StatusOK)
-	w.Write([]byte(`<div class="success">Password reset successfully! <a href="/login" class="link">Click here to sign in</a></div>`))
+	w.Write(
+		[]byte(
+			`<div class="success">Password reset successfully! <a href="/login" class="link">Click here to sign in</a></div>`,
+		),
+	)
 }
 
 func (s *Server) getHealth(w http.ResponseWriter, r *http.Request) {

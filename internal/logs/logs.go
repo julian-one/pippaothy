@@ -10,33 +10,46 @@ import (
 	"time"
 )
 
-// Simple log entry with only essential fields
+// LogEntry represents a single log entry with essential fields
 type LogEntry struct {
+	// Core fields
 	Timestamp time.Time `json:"time"`
 	Level     string    `json:"level"`
 	Message   string    `json:"msg"`
-	ClientIP  string    `json:"client_ip,omitempty"`
-	Method    string    `json:"method,omitempty"`
-	Path      string    `json:"path,omitempty"`
-	RequestID string    `json:"request_id,omitempty"`
+
+	// Request information
+	RequestID string `json:"request_id,omitempty"`
+	Method    string `json:"method,omitempty"`
+	Path      string `json:"path,omitempty"`
+	ClientIP  string `json:"client_ip,omitempty"`
 }
 
-// Simple query parameters
+// LogQuery represents query parameters for log filtering
 type LogQuery struct {
-	Page    int
-	Limit   int
-	Level   string
-	GroupBy string // "date", "hour", "ip", or empty for no grouping
+	// Pagination
+	Page  int `json:"page"`
+	Limit int `json:"limit"`
+
+	// Filtering
+	Level string `json:"level,omitempty"`
+
+	// Grouping - "date", "hour", "ip", or empty for no grouping
+	GroupBy string `json:"group_by,omitempty"`
 }
 
-// Simple result structure
+// LogResult represents the result of a log query
 type LogResult struct {
-	Entries []LogEntry
-	Groups  map[string][]LogEntry // For grouped results
-	Page    int
-	Limit   int
-	HasMore bool
-	Error   string
+	// Results
+	Entries []LogEntry            `json:"entries,omitempty"`
+	Groups  map[string][]LogEntry `json:"groups,omitempty"` // For grouped results
+
+	// Pagination metadata
+	Page    int  `json:"page"`
+	Limit   int  `json:"limit"`
+	HasMore bool `json:"has_more"`
+
+	// Error information
+	Error string `json:"error,omitempty"`
 }
 
 // Get log file path with fallback
@@ -200,54 +213,19 @@ func GetLogs(query LogQuery) LogResult {
 	return paginate(allEntries, query.Page, query.Limit)
 }
 
-func reverseSlice(entries []LogEntry) {
-	for i := len(entries)/2 - 1; i >= 0; i-- {
-		opp := len(entries) - 1 - i
-		entries[i], entries[opp] = entries[opp], entries[i]
-	}
-}
-
-func groupEntries(entries []LogEntry, groupBy string) map[string][]LogEntry {
-	groups := make(map[string][]LogEntry)
-	for _, entry := range entries {
-		key := getGroupKey(entry, groupBy)
-		groups[key] = append(groups[key], entry)
-	}
-	return groups
-}
-
-func getGroupKey(entry LogEntry, groupBy string) string {
-	switch groupBy {
-	case "date":
-		return entry.Timestamp.Format("2006-01-02")
-	case "hour":
-		return entry.Timestamp.Format("2006-01-02 15h")
-	case "ip":
-		if entry.ClientIP != "" {
-			return entry.ClientIP
-		}
-		return "No IP"
-	default:
-		return "Unknown"
-	}
-}
-
 func paginate(entries []LogEntry, page, limit int) LogResult {
 	total := len(entries)
 	start := (page - 1) * limit
-	
+
 	if start >= total {
 		return LogResult{
 			Page:  page,
 			Limit: limit,
 		}
 	}
-	
-	end := start + limit
-	if end > total {
-		end = total
-	}
-	
+
+	end := min(start+limit, total)
+
 	return LogResult{
 		Entries: entries[start:end],
 		Page:    page,

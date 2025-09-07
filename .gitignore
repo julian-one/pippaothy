@@ -1,24 +1,20 @@
 # general
 *.log
 *.swp
-
 tmp
+.env
+scratch*
 
 # mac
 .DS_Store
 
 # binaries
-bin/*
 pippaothy
 main
+bin/*
 
 # templ generate files
 internal/templates/*.go
 
 # tailwind generated files
 static/css/output.css
-
-.env
-scratch*
-cspell.json
-CLAUDE.md

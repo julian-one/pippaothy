@@ -4,20 +4,23 @@ import (
 	"context"
 	"log/slog"
 	"net/http"
+	"pippaothy/internal/ratelimit"
 
 	"github.com/jmoiron/sqlx"
 )
 
 type Server struct {
-	db     *sqlx.DB
-	logger *slog.Logger
-	server *http.Server
+	db          *sqlx.DB
+	logger      *slog.Logger
+	server      *http.Server
+	rateLimiter *ratelimit.RateLimiter
 }
 
 func New(db *sqlx.DB, logger *slog.Logger) *Server {
 	return &Server{
-		db:     db,
-		logger: logger,
+		db:          db,
+		logger:      logger,
+		rateLimiter: ratelimit.New(db),
 	}
 }
 

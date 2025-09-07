@@ -1,5 +1,11 @@
 package templates
 
+import (
+	"encoding/base64"
+	"fmt"
+	"time"
+)
+
 templ Register() {
 	<div class="hero min-h-[70vh]">
 		<div class="hero-content">
@@ -194,6 +200,7 @@ templ ForgotPassword() {
 						hx-target="#forgot-password-error"
 						hx-target-error="#forgot-password-error"
 						class="space-y-4"
+						id="forgot-password-form"
 					>
 						<div class="form-control">
 							<label for="email" class="label">
@@ -210,6 +217,21 @@ templ ForgotPassword() {
 								required
 							/>
 						</div>
+						
+						<input
+							type="text"
+							name="website"
+							style="display:none"
+							tabindex="-1"
+							autocomplete="off"
+							aria-hidden="true"
+						/>
+						
+						<input
+							type="hidden"
+							name="render_time"
+							value={ base64.StdEncoding.EncodeToString([]byte(fmt.Sprintf("%d", time.Now().Unix()))) }
+						/>
 						
 						<div class="pt-2">
 							<button type="submit" class="btn btn-primary w-full">
