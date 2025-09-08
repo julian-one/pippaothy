@@ -33,6 +33,7 @@ func (s *Server) Start() error {
 	mux.HandleFunc("GET /health", s.getHealth)
 
 	mux.HandleFunc("GET /", s.withAuth(s.getHome))
+	mux.HandleFunc("GET /about", s.withAuth(s.getAbout))
 	mux.HandleFunc("GET /register", s.withAuth(s.getRegister))
 	mux.HandleFunc("POST /register", s.postRegister)
 	mux.HandleFunc("GET /login", s.withAuth(s.getLogin))

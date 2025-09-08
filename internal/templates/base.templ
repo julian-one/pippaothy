@@ -17,6 +17,9 @@ templ Layout(contents templ.Component, title string, loggedIn bool) {
 				<div class="navbar-start">
 					<a href="/" class="btn btn-ghost text-lg font-medium normal-case">Pippaothy</a>
 				</div>
+				<div class="navbar-center">
+					<a href="/about" class="btn btn-ghost btn-sm">About the Human</a>
+				</div>
 				<div class="navbar-end gap-1">
 					if !loggedIn {
 						<a href="/register" class="btn btn-ghost btn-sm">Register</a>
@@ -44,21 +47,34 @@ templ Layout(contents templ.Component, title string, loggedIn bool) {
 }
 
 templ Home(name, message string) {
-	<div class="hero min-h-96">
-		<div class="hero-content text-center">
-			<div class="max-w-md">
-				if name != "" {
-					<h1 class="text-3xl font-medium mb-2">Welcome back</h1>
-					<p class="text-base-content/70 mb-6">{ name }</p>
-				} else {
-					<h1 class="text-3xl font-medium mb-6">Welcome</h1>
-				}
-				if message != "" {
-					<div class="alert alert-success mb-6">
-						<svg xmlns="http://www.w3.org/2000/svg" class="stroke-current shrink-0 h-6 w-6" fill="none" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
-						<span>{ message }</span>
-					</div>
-				}
+	<div class="space-y-12">
+		// Success message at top
+		if message != "" {
+			<div class="flex justify-center">
+				<div class="alert alert-success max-w-lg shadow-sm">
+					<svg xmlns="http://www.w3.org/2000/svg" class="stroke-current shrink-0 h-6 w-6" fill="none" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
+					<span>{ message }</span>
+				</div>
+			</div>
+		}
+		// Welcome header
+		<div class="text-center">
+			if name != "" {
+				<h1 class="text-5xl font-light mb-4 text-base-content">Welcome back</h1>
+				<p class="text-3xl text-primary">{ name }</p>
+			} else {
+				<h1 class="text-5xl font-light text-base-content">Welcome to <span class="text-primary">Pippaothy</span></h1>
+				<p class="text-lg text-base-content/60 mt-2">Named after the star below, <span class="text-warning">Pippa</span> 🐾</p>
+			}
+		</div>
+		// Hero image with improved styling
+		<div class="flex justify-center">
+			<div class="max-w-4xl w-full overflow-hidden rounded-2xl ring-4 ring-primary/10">
+				<img
+					src="/static/images/pippa.jpg"
+					class="w-full h-auto shadow-xl"
+					alt="Pippa"
+				/>
 			</div>
 		</div>
 	</div>

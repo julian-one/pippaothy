@@ -32,6 +32,15 @@ func (s *Server) getHome(w http.ResponseWriter, r *http.Request) {
 		Render(r.Context(), w)
 }
 
+func (s *Server) getAbout(w http.ResponseWriter, r *http.Request) {
+	u := s.getCtxUser(r)
+	loggedIn := u != nil
+
+	w.Header().Set("Content-Type", "text/html")
+	templates.Layout(templates.AboutPage(), "About - Julian Roberts", loggedIn).
+		Render(r.Context(), w)
+}
+
 func (s *Server) getRegister(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "text/html")
 	templates.Layout(templates.Register(), "register", false).Render(r.Context(), w)
