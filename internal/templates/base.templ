@@ -1,5 +1,10 @@
 package templates
 
+import (
+	"fmt"
+	"time"
+)
+
 templ Layout(contents templ.Component, title string, loggedIn bool) {
 	<!DOCTYPE html>
 	<html lang="en" data-theme="vague">
@@ -7,38 +12,71 @@ templ Layout(contents templ.Component, title string, loggedIn bool) {
 			<title>{ title }</title>
 			<meta charset="UTF-8"/>
 			<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-			<link rel="stylesheet" href="/static/css/output.css"/>
-			<script src="/static/js/htmx.min.js"></script>
-			<script src="/static/js/htmx-ext-response-targets.js"></script>
-			<script src="/static/js/htmx-ext-sse.js"></script>
+			<link rel="stylesheet" href={ fmt.Sprintf("/static/css/output.css?v=%d", time.Now().Unix()) }/>
+			<script src={ fmt.Sprintf("/static/js/htmx.min.js?v=%d", time.Now().Unix()) }></script>
+			<script src={ fmt.Sprintf("/static/js/htmx-ext-response-targets.js?v=%d", time.Now().Unix()) }></script>
+			<script src={ fmt.Sprintf("/static/js/htmx-ext-sse.js?v=%d", time.Now().Unix()) }></script>
+			<script>
+				// Theme management
+				function initTheme() {
+					const savedTheme = localStorage.getItem('theme') || 'vague';
+					document.documentElement.setAttribute('data-theme', savedTheme);
+				}
+				
+				function toggleTheme() {
+					const html = document.documentElement;
+					const currentTheme = html.getAttribute('data-theme');
+					const newTheme = currentTheme === 'vague' ? 'light' : 'vague';
+					html.setAttribute('data-theme', newTheme);
+					localStorage.setItem('theme', newTheme);
+				}
+				
+				// Initialize theme on page load
+				initTheme();
+			</script>
 		</head>
 		<body hx-ext="response-targets" class="min-h-screen flex flex-col bg-base-100">
-			<div class="navbar bg-base-100 border-b border-base-200">
+			<div class="navbar navbar-modern sticky top-0 z-sticky">
 				<div class="navbar-start">
-					<a href="/" class="btn btn-ghost text-lg font-medium normal-case">Pippaothy</a>
+					<a href="/" class="btn btn-ghost text-lg font-medium normal-case hover-glow">
+						<span class="text-primary">Pippaothy</span>
+					</a>
 				</div>
-				<div class="navbar-center">
-					<a href="/about" class="btn btn-ghost btn-sm">About the Human</a>
+				<div class="navbar-center hidden md:flex">
+					<a href="/about" class="btn btn-ghost btn-sm hover-lift">About the Human</a>
+					if loggedIn {
+						<a href="/recipes" class="btn btn-ghost btn-sm hover-lift">Recipes</a>
+					}
 				</div>
-				<div class="navbar-end gap-1">
+				<div class="navbar-end gap-2">
+					<!-- Theme Toggle -->
+					<button
+						onclick="toggleTheme()"
+						class="btn btn-ghost btn-circle btn-sm touch-target"
+						aria-label="Toggle theme"
+					>
+						<svg class="swap-off h-5 w-5" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+							<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20.354 15.354A9 9 0 018.646 3.646 9.003 9.003 0 0012 21a9.003 9.003 0 008.354-5.646z"></path>
+						</svg>
+					</button>
 					if !loggedIn {
-						<a href="/register" class="btn btn-ghost btn-sm">Register</a>
-						<a href="/login" class="btn btn-outline btn-sm">Login</a>
+						<a href="/register" class="btn btn-ghost btn-sm hover-lift">Register</a>
+						<a href="/login" class="btn btn-primary btn-sm hover-glow">Login</a>
 					} else {
 						<button
 							type="button"
 							hx-post="/logout"
 							hx-target="body"
 							hx-swap="outerHTML"
-							class="btn btn-ghost btn-sm"
+							class="btn btn-ghost btn-sm hover-lift"
 						>
 							Logout
 						</button>
 					}
 				</div>
 			</div>
-			<main class="flex-1 container mx-auto px-4 py-8">
-				<div class="w-full max-w-6xl mx-auto">
+			<main class="flex-1 container mx-auto px-4 section-spacing">
+				<div class="w-full container-wide mx-auto">
 					@contents
 				</div>
 			</main>
@@ -47,11 +85,11 @@ templ Layout(contents templ.Component, title string, loggedIn bool) {
 }
 
 templ Home(name, message string) {
-	<div class="space-y-12">
+	<div class="space-y-12 animate-fade-in">
 		// Success message at top
 		if message != "" {
 			<div class="flex justify-center">
-				<div class="alert alert-success max-w-lg shadow-sm">
+				<div class="alert alert-success max-w-lg shadow-lg animate-slide-up">
 					<svg xmlns="http://www.w3.org/2000/svg" class="stroke-current shrink-0 h-6 w-6" fill="none" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
 					<span>{ message }</span>
 				</div>
@@ -60,20 +98,21 @@ templ Home(name, message string) {
 		// Welcome header
 		<div class="text-center">
 			if name != "" {
-				<h1 class="text-5xl font-light mb-4 text-base-content">Welcome back</h1>
-				<p class="text-3xl text-primary">{ name }</p>
+				<h1 class="text-5xl font-light mb-4 text-base-content animate-slide-up">Welcome back</h1>
+				<p class="text-3xl text-primary font-semibold">{ name }</p>
 			} else {
-				<h1 class="text-5xl font-light text-base-content">Welcome to <span class="text-primary">Pippaothy</span></h1>
-				<p class="text-lg text-base-content/60 mt-2">Named after the star below, <span class="text-warning">Pippa</span> 🐾</p>
+				<h1 class="text-5xl font-light text-base-content animate-slide-up">Welcome to <span class="text-primary">Pippaothy</span></h1>
+				<p class="text-lg text-muted mt-2">Named after the star below, <span class="text-warning font-semibold">Pippa</span> 🐾</p>
 			}
 		</div>
 		// Hero image with improved styling
 		<div class="flex justify-center">
-			<div class="max-w-4xl w-full overflow-hidden rounded-2xl ring-4 ring-primary/10">
+			<div class="max-w-4xl w-full overflow-hidden rounded-2xl shadow-2xl card-hover">
 				<img
-					src="/static/images/pippa.jpg"
-					class="w-full h-auto shadow-xl"
+					src={ fmt.Sprintf("/static/images/pippa.jpg?v=%d", time.Now().Unix()) }
+					class="w-full h-auto"
 					alt="Pippa"
+					loading="eager"
 				/>
 			</div>
 		</div>

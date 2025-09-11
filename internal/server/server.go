@@ -45,6 +45,18 @@ func (s *Server) Start() error {
 	mux.HandleFunc("POST /reset-password", s.postResetPassword)
 	mux.HandleFunc("GET /logs", s.requireAuth(s.getSimpleLogs))
 
+	// Recipe routes
+	mux.HandleFunc("GET /recipes", s.requireAuth(s.getRecipes))
+	mux.HandleFunc("GET /recipes/new", s.requireAuth(s.getNewRecipe))
+	mux.HandleFunc("POST /recipes", s.requireAuth(s.postRecipe))
+	mux.HandleFunc("GET /recipes/{id}", s.requireAuth(s.getRecipe))
+	mux.HandleFunc("GET /recipes/{id}/edit", s.requireAuth(s.getEditRecipe))
+	mux.HandleFunc("PUT /recipes/{id}", s.requireAuth(s.putRecipe))
+	mux.HandleFunc("DELETE /recipes/{id}", s.requireAuth(s.deleteRecipe))
+	
+	// Recipe API routes
+	mux.HandleFunc("GET /api/recipes", s.requireAuth(s.getRecipesAPI))
+
 	// Wrap the entire mux with logging middleware
 	handler := s.withLogging(mux.ServeHTTP)
 
