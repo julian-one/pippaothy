@@ -167,7 +167,16 @@ templ SimpleLogEntries(result logs.LogResult) {
 				← Previous
 			</button>
 			
-			<span class="text-base-content/60 text-sm">Page { fmt.Sprintf("%d", result.Page) }</span>
+			<div class="text-center">
+				<span class="text-base-content/60 text-sm">
+					Page { fmt.Sprintf("%d", result.Page) } of { fmt.Sprintf("%d", result.TotalPages) }
+				</span>
+				if result.TotalCount > 0 {
+					<div class="text-xs text-base-content/50 mt-1">
+						{ fmt.Sprintf("%d", result.TotalCount) } total entries
+					</div>
+				}
+			</div>
 			
 			<button
 				if !result.HasMore {

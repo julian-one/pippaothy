@@ -7,12 +7,12 @@ import (
 )
 
 templ Register() {
-	<div class="container-narrow mx-auto px-4 section-spacing animate-fade-in">
+	<div class="container-narrow mx-auto px-4 section-spacing page-enter">
 		<div class="text-center mb-8">
 			<h1 class="text-5xl font-light mb-4 text-base-content">Create <span class="text-primary">Account</span></h1>
 		</div>
 		<div class="flex justify-center">
-			<div class="card card-glass shadow-2xl rounded-2xl w-full max-w-md animate-slide-up">
+			<div class="card card-glass shadow-2xl rounded-2xl w-full max-w-md animate-fade-in">
 				<div class="card-body p-8">
 					<form
 						hx-post="/register"
@@ -121,12 +121,12 @@ templ Register() {
 }
 
 templ Login() {
-	<div class="container-narrow mx-auto px-4 section-spacing animate-fade-in">
+	<div class="container-narrow mx-auto px-4 section-spacing page-enter">
 		<div class="text-center mb-8">
 			<h1 class="text-5xl font-light mb-4 text-base-content">Welcome <span class="text-primary">Back</span></h1>
 		</div>
 		<div class="flex justify-center">
-			<div class="card card-glass shadow-2xl rounded-2xl w-full max-w-md animate-slide-up">
+			<div class="card card-glass shadow-2xl rounded-2xl w-full max-w-md animate-fade-in">
 				<div class="card-body p-8">
 					<form
 						hx-post="/login"

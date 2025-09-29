@@ -294,9 +294,21 @@
     outline: none;
   }
 
-  /* Smooth transitions for theme switching */
+  /* Smooth transitions for theme switching and interactions */
   * {
-    transition: color 200ms ease, background-color 200ms ease, border-color 200ms ease;
+    transition: color var(--duration-fast) var(--ease-out),
+                background-color var(--duration-fast) var(--ease-out),
+                border-color var(--duration-fast) var(--ease-out);
+  }
+
+  /* Button and input focus states inherit DaisyUI behavior */
+  .btn {
+    transition: all var(--duration-fast) var(--ease-out);
+  }
+
+  .input, .textarea, .select {
+    transition: border-color var(--duration-fast) var(--ease-out),
+                box-shadow var(--duration-fast) var(--ease-out);
   }
 
   /* Typography improvements */
@@ -363,26 +375,26 @@
     animation: slideInDown var(--duration-base) var(--ease-out);
   }
 
-  /* Card variations with consistent styling */
+  /* Card variations with consistent styling - DaisyUI aligned */
   .card-hover {
-    transition: all 0.3s ease;
+    transition: all var(--duration-base) var(--ease-out);
   }
-  
+
   .card-hover:hover {
-    transform: translateY(-4px);
-    box-shadow: var(--shadow-xl);
+    transform: translateY(-2px);
+    box-shadow: var(--shadow-lg);
   }
 
   .card-interactive {
-    transition: all 0.3s ease;
+    transition: all var(--duration-base) var(--ease-out);
     cursor: pointer;
   }
-  
+
   .card-interactive:hover {
-    transform: translateY(-4px);
-    box-shadow: var(--shadow-xl);
+    transform: translateY(-2px);
+    box-shadow: var(--shadow-lg);
     border-color: var(--color-primary);
-    border-opacity: 0.3;
+    border-opacity: 0.2;
   }
 
   .card-glass {
@@ -537,43 +549,68 @@
     backdrop-filter: blur(20px);
   }
 
-  /* Animation utilities */
+  /* Animation utilities - Minimal, professional DaisyUI animations */
   .animate-fade-in {
     animation: fadeIn var(--duration-base) var(--ease-out);
+    animation-fill-mode: both;
   }
 
   .animate-slide-up {
     animation: slideUp var(--duration-base) var(--ease-out);
+    animation-fill-mode: both;
   }
 
   .animate-scale-in {
-    animation: scaleIn var(--duration-fast) var(--ease-bounce);
+    animation: scaleIn var(--duration-base) var(--ease-out);
+    animation-fill-mode: both;
   }
 
-  /* Hover effects */
-  .hover-lift {
-    transition: transform 200ms ease;
+  /* Staggered animations for lists and grids */
+  .animate-stagger > * {
+    opacity: 0;
+    animation: fadeInStagger var(--duration-base) var(--ease-out) forwards;
   }
-  
+
+  .animate-stagger > *:nth-child(1) { animation-delay: 0ms; }
+  .animate-stagger > *:nth-child(2) { animation-delay: 50ms; }
+  .animate-stagger > *:nth-child(3) { animation-delay: 100ms; }
+  .animate-stagger > *:nth-child(4) { animation-delay: 150ms; }
+  .animate-stagger > *:nth-child(5) { animation-delay: 200ms; }
+  .animate-stagger > *:nth-child(6) { animation-delay: 250ms; }
+  .animate-stagger > *:nth-child(7) { animation-delay: 300ms; }
+  .animate-stagger > *:nth-child(8) { animation-delay: 350ms; }
+  .animate-stagger > *:nth-child(9) { animation-delay: 400ms; }
+
+  /* Page entrance animation */
+  .page-enter {
+    animation: pageEnter var(--duration-slow) var(--ease-out);
+    animation-fill-mode: both;
+  }
+
+  /* Hover effects - Minimal and professional */
+  .hover-lift {
+    transition: transform var(--duration-fast) var(--ease-out);
+  }
+
   .hover-lift:hover {
-    transform: translateY(-4px);
+    transform: translateY(-2px);
   }
 
   .hover-grow {
-    transition: transform 200ms ease;
+    transition: transform var(--duration-fast) var(--ease-out);
   }
-  
+
   .hover-grow:hover {
-    transform: scale(1.05);
+    transform: scale(1.02);
   }
 
   .hover-glow {
-    transition: box-shadow 200ms ease;
+    transition: box-shadow var(--duration-fast) var(--ease-out);
   }
-  
+
   .hover-glow:hover {
-    box-shadow: 0 10px 15px -3px rgb(0 0 0 / 0.1), 0 4px 6px -4px var(--color-primary);
-    box-shadow-opacity: 0.2;
+    box-shadow: 0 4px 8px -2px rgb(0 0 0 / 0.1), 0 2px 4px -2px var(--color-primary);
+    box-shadow-opacity: 0.15;
   }
 
   /* Focus trap for modals */
@@ -681,7 +718,7 @@
 
 @keyframes slideUp {
   from {
-    transform: translateY(20px);
+    transform: translateY(12px);
     opacity: 0;
   }
   to {
@@ -692,7 +729,7 @@
 
 @keyframes slideInDown {
   from {
-    transform: translateY(-20px);
+    transform: translateY(-12px);
     opacity: 0;
   }
   to {
@@ -703,7 +740,7 @@
 
 @keyframes scaleIn {
   from {
-    transform: scale(0.9);
+    transform: scale(0.95);
     opacity: 0;
   }
   to {
@@ -730,5 +767,27 @@
   }
   50% {
     opacity: 0.8;
+  }
+}
+
+@keyframes fadeInStagger {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes pageEnter {
+  from {
+    opacity: 0;
+    transform: translateY(16px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
   }
 }

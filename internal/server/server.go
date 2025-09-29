@@ -44,6 +44,7 @@ func (s *Server) Start() error {
 	mux.HandleFunc("GET /reset-password", s.getResetPassword)
 	mux.HandleFunc("POST /reset-password", s.postResetPassword)
 	mux.HandleFunc("GET /logs", s.requireAuth(s.getSimpleLogs))
+	mux.HandleFunc("GET /api/logs", s.requireAuth(s.getLogsAPI))
 
 	// Recipe routes
 	mux.HandleFunc("GET /recipes", s.requireAuth(s.getRecipes))

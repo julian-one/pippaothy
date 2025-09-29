@@ -24,6 +24,48 @@ type LogEntry struct {
 	ClientIP  string `json:"client_ip,omitempty"`
 }
 
+// UnmarshalJSON custom unmarshaler to handle different timestamp formats
+func (le *LogEntry) UnmarshalJSON(data []byte) error {
+	type Alias LogEntry
+	aux := &struct {
+		TimeStr string `json:"time"`
+		*Alias
+	}{
+		Alias: (*Alias)(le),
+	}
+
+	if err := json.Unmarshal(data, &aux); err != nil {
+		return err
+	}
+
+	// Parse timestamp with multiple format support
+	if aux.TimeStr != "" {
+		formats := []string{
+			time.RFC3339,
+			time.RFC3339Nano,
+			"2006-01-02T15:04:05Z",
+			"2006-01-02T15:04:05",
+			"2006-01-02 15:04:05",
+		}
+
+		var parsed bool
+		for _, format := range formats {
+			if t, err := time.Parse(format, aux.TimeStr); err == nil {
+				le.Timestamp = t
+				parsed = true
+				break
+			}
+		}
+
+		if !parsed {
+			// If we can't parse the timestamp, use current time
+			le.Timestamp = time.Now()
+		}
+	}
+
+	return nil
+}
+
 // LogQuery represents query parameters for log filtering
 type LogQuery struct {
 	// Pagination
@@ -44,9 +86,11 @@ type LogResult struct {
 	Groups  map[string][]LogEntry `json:"groups,omitempty"` // For grouped results
 
 	// Pagination metadata
-	Page    int  `json:"page"`
-	Limit   int  `json:"limit"`
-	HasMore bool `json:"has_more"`
+	Page       int  `json:"page"`
+	Limit      int  `json:"limit"`
+	HasMore    bool `json:"has_more"`
+	TotalCount int  `json:"total_count"`
+	TotalPages int  `json:"total_pages"`
 
 	// Error information
 	Error string `json:"error,omitempty"`
@@ -87,24 +131,68 @@ func ParseQuery(r *http.Request) LogQuery {
 	}
 }
 
-// Parse a single log line - simplified to handle only JSON logs
+// Parse a single log line - handles both JSON and nginx access logs
 func parseLogLine(line string) (LogEntry, bool) {
 	var entry LogEntry
-	if err := json.Unmarshal([]byte(line), &entry); err != nil {
-		// If not JSON, try to extract timestamp from line or use zero time
-		timestamp := time.Time{}
-		if len(line) > 25 {
-			// Try to parse common timestamp formats at beginning of line
-			if t, parseErr := time.Parse("2006-01-02T15:04:05", line[:19]); parseErr == nil {
-				timestamp = t
-			}
-		}
-		entry = LogEntry{
-			Timestamp: timestamp,
-			Level:     "info",
-			Message:   line,
+	// First try to parse as JSON
+	if err := json.Unmarshal([]byte(line), &entry); err == nil {
+		return entry, true
+	}
+
+	// If not JSON, parse as nginx access log
+	// Format: IP - - [timestamp] "method path protocol" status size "referer" "user-agent"
+	timestamp := time.Now() // Default to now if parsing fails
+
+	// Find the timestamp between square brackets
+	startIdx := strings.Index(line, "[")
+	endIdx := strings.Index(line, "]")
+	if startIdx != -1 && endIdx != -1 && startIdx < endIdx {
+		timeStr := line[startIdx+1 : endIdx]
+		// Parse nginx timestamp format: 14/Sep/2025:17:02:35 +0000
+		if t, err := time.Parse("02/Jan/2006:15:04:05 -0700", timeStr); err == nil {
+			timestamp = t
 		}
 	}
+
+	// Extract other fields from nginx log
+	level := "info"
+
+	// Check for status code to determine level
+	if strings.Contains(line, " 404 ") || strings.Contains(line, " 403 ") {
+		level = "warn"
+	} else if strings.Contains(line, " 500 ") || strings.Contains(line, " 502 ") || strings.Contains(line, " 503 ") {
+		level = "error"
+	}
+
+	// Extract request path
+	requestStart := strings.Index(line, "\"")
+	requestEnd := strings.Index(line[requestStart+1:], "\"")
+	path := ""
+	method := ""
+	if requestStart != -1 && requestEnd != -1 {
+		request := line[requestStart+1 : requestStart+1+requestEnd]
+		parts := strings.Fields(request)
+		if len(parts) >= 2 {
+			method = parts[0]
+			path = parts[1]
+		}
+	}
+
+	// Extract client IP
+	clientIP := ""
+	if idx := strings.Index(line, " "); idx > 0 {
+		clientIP = line[:idx]
+	}
+
+	entry = LogEntry{
+		Timestamp: timestamp,
+		Level:     level,
+		Message:   line,
+		Method:    method,
+		Path:      path,
+		ClientIP:  clientIP,
+	}
+
 	return entry, true
 }
 
@@ -123,22 +211,26 @@ func GetLogs(query LogQuery) LogResult {
 	// Check if file exists
 	if _, err := os.Stat(logFile); os.IsNotExist(err) {
 		return LogResult{
-			Entries: []LogEntry{},
-			Page:    query.Page,
-			Limit:   query.Limit,
-			HasMore: false,
-			Error:   "Log file not found",
+			Entries:    []LogEntry{},
+			Page:       query.Page,
+			Limit:      query.Limit,
+			HasMore:    false,
+			TotalCount: 0,
+			TotalPages: 0,
+			Error:      "Log file not found",
 		}
 	}
 
 	file, err := os.Open(logFile)
 	if err != nil {
 		return LogResult{
-			Entries: []LogEntry{},
-			Page:    query.Page,
-			Limit:   query.Limit,
-			HasMore: false,
-			Error:   "Failed to open log file",
+			Entries:    []LogEntry{},
+			Page:       query.Page,
+			Limit:      query.Limit,
+			HasMore:    false,
+			TotalCount: 0,
+			TotalPages: 0,
+			Error:      "Failed to open log file",
 		}
 	}
 	defer file.Close()
@@ -165,11 +257,13 @@ func GetLogs(query LogQuery) LogResult {
 
 	if err := scanner.Err(); err != nil {
 		return LogResult{
-			Entries: []LogEntry{},
-			Page:    query.Page,
-			Limit:   query.Limit,
-			HasMore: false,
-			Error:   "Failed to read log file",
+			Entries:    []LogEntry{},
+			Page:       query.Page,
+			Limit:      query.Limit,
+			HasMore:    false,
+			TotalCount: 0,
+			TotalPages: 0,
+			Error:      "Failed to read log file",
 		}
 	}
 
@@ -177,6 +271,12 @@ func GetLogs(query LogQuery) LogResult {
 	for i := len(allEntries)/2 - 1; i >= 0; i-- {
 		opp := len(allEntries) - 1 - i
 		allEntries[i], allEntries[opp] = allEntries[opp], allEntries[i]
+	}
+
+	totalCount := len(allEntries)
+	totalPages := (totalCount + query.Limit - 1) / query.Limit
+	if totalPages == 0 {
+		totalPages = 1
 	}
 
 	// Handle grouping if requested
@@ -203,33 +303,39 @@ func GetLogs(query LogQuery) LogResult {
 		}
 
 		return LogResult{
-			Groups:  groups,
-			Page:    query.Page,
-			Limit:   query.Limit,
-			HasMore: false,
+			Groups:     groups,
+			Page:       query.Page,
+			Limit:      query.Limit,
+			HasMore:    false,
+			TotalCount: totalCount,
+			TotalPages: totalPages,
 		}
 	}
 
-	return paginate(allEntries, query.Page, query.Limit)
+	return paginate(allEntries, query.Page, query.Limit, totalCount, totalPages)
 }
 
-func paginate(entries []LogEntry, page, limit int) LogResult {
+func paginate(entries []LogEntry, page, limit, totalCount, totalPages int) LogResult {
 	total := len(entries)
 	start := (page - 1) * limit
 
 	if start >= total {
 		return LogResult{
-			Page:  page,
-			Limit: limit,
+			Page:       page,
+			Limit:      limit,
+			TotalCount: totalCount,
+			TotalPages: totalPages,
 		}
 	}
 
 	end := min(start+limit, total)
 
 	return LogResult{
-		Entries: entries[start:end],
-		Page:    page,
-		Limit:   limit,
-		HasMore: end < total,
+		Entries:    entries[start:end],
+		Page:       page,
+		Limit:      limit,
+		HasMore:    end < total,
+		TotalCount: totalCount,
+		TotalPages: totalPages,
 	}
 }

@@ -6,7 +6,7 @@ import (
 )
 
 templ RecipesList(recipeList []recipes.Recipe) {
-	<div class="container-wide mx-auto px-4 section-spacing space-y-8 animate-fade-in">
+	<div class="container-wide mx-auto px-4 section-spacing space-y-8 page-enter">
 		<div class="text-center mb-12">
 			<h1 class="text-5xl font-light mb-4 text-base-content">My <span class="text-primary">Recipes</span></h1>
 			<p class="text-lg text-muted">A collection of favorite dishes and culinary experiments</p>
@@ -31,7 +31,7 @@ templ RecipesList(recipeList []recipes.Recipe) {
 			</section>
 		} else {
 			<section>
-				<div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+				<div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 animate-stagger">
 					for _, recipe := range recipeList {
 						@RecipeCard(recipe)
 					}
@@ -42,7 +42,7 @@ templ RecipesList(recipeList []recipes.Recipe) {
 }
 
 templ RecipeCard(recipe recipes.Recipe) {
-	<div class="card card-interactive shadow-xl h-full flex flex-col animate-scale-in">
+	<div class="card card-interactive shadow-xl h-full flex flex-col">
 		if recipe.ImageUrl != nil && *recipe.ImageUrl != "" {
 			<figure class="rounded-t-2xl overflow-hidden flex-shrink-0">
 				<img src={ *recipe.ImageUrl } alt={ recipe.Title } class="h-48 w-full object-cover"/>

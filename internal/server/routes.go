@@ -202,17 +202,64 @@ func (s *Server) postLogout(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *Server) getSimpleLogs(w http.ResponseWriter, r *http.Request) {
-	query := logs.ParseQuery(r)
-	result := logs.GetLogs(query)
+	user := s.getCtxUser(r)
+
+	userEmail := "development"
+	if user != nil {
+		userEmail = user.Email
+	}
+
+	s.logger.Info("logs dashboard accessed",
+		"user", userEmail,
+		"client_ip", getClientIP(r),
+	)
+
+	// Get logs and analytics
+	result, stats := logs.GetLogsDashboard()
 
 	w.Header().Set("Content-Type", "text/html")
 
 	if r.Header.Get("HX-Request") == "true" {
 		templates.SimpleLogEntries(result).Render(r.Context(), w)
 	} else {
-		user := s.getCtxUser(r)
-		loggedIn := user != nil
-		templates.Layout(templates.SimpleLogs(result, query), "logs", loggedIn).Render(r.Context(), w)
+		loggedIn := true // We know user is logged in from check above
+		templates.Layout(templates.LogsDashboardSimple(result, stats), "Logs Dashboard", loggedIn).Render(r.Context(), w)
+	}
+}
+
+func (s *Server) getLogsAPI(w http.ResponseWriter, r *http.Request) {
+	// Restrict access to specific email
+	user := s.getCtxUser(r)
+	if user == nil || user.Email != "julian.roberts.one@gmail.com" {
+		s.logger.Warn("unauthorized logs API access attempt",
+			"client_ip", getClientIP(r),
+			"attempted_email", func() string {
+				if user != nil {
+					return user.Email
+				}
+				return "unauthenticated"
+			}(),
+		)
+		http.Error(w, "Forbidden", http.StatusForbidden)
+		return
+	}
+
+	s.logger.Debug("logs API accessed",
+		"user", user.Email,
+		"client_ip", getClientIP(r),
+	)
+
+	// Get logs and analytics
+	_, stats := logs.GetLogsDashboard()
+
+	w.Header().Set("Content-Type", "application/json")
+	if err := json.NewEncoder(w).Encode(stats); err != nil {
+		s.logger.Error("failed to encode logs API response",
+			"error", err,
+			"user", user.Email,
+		)
+		http.Error(w, "Internal Server Error", http.StatusInternalServerError)
+		return
 	}
 }
 

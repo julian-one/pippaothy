@@ -1,9 +1,9 @@
 package templates
 
 templ AboutPage() {
-	<div class="container-narrow mx-auto px-4 section-spacing animate-fade-in">
+	<div class="container-narrow mx-auto px-4 section-spacing page-enter">
 		// Hero Card Section
-		<div class="hero bg-base-200/30 rounded-box mb-16 animate-slide-up">
+		<div class="hero bg-base-200/30 rounded-box mb-16">
 			<div class="hero-content flex-col lg:flex-row-reverse gap-8 lg:gap-12 py-16">
 				<div class="avatar">
 					<div class="w-48 rounded-xl shadow-2xl hover-lift">
@@ -168,7 +168,7 @@ templ AboutPage() {
 			<div class="grid grid-cols-1 md:grid-cols-2 gap-6">
 				<div>
 					<h3 class="text-lg font-medium mb-3 text-base-content">Languages & Frameworks</h3>
-					<div class="flex flex-wrap gap-2">
+					<div class="flex flex-wrap gap-2 animate-stagger">
 						@skillBadge("Go")
 						@skillBadge("Templ")
 						@skillBadge("HTMX")
@@ -187,7 +187,7 @@ templ AboutPage() {
 				</div>
 				<div>
 					<h3 class="text-lg font-medium mb-3 text-base-content">Tools & Technologies</h3>
-					<div class="flex flex-wrap gap-2">
+					<div class="flex flex-wrap gap-2 animate-stagger">
 						@skillBadge("AWS")
 						@skillBadge("GCP")
 						@skillBadge("Docker")
