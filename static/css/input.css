@@ -190,78 +190,12 @@
 }
 
 /* ===================================================================
-   Light Theme Configuration
-   =================================================================== */
-
-[data-theme="light"] {
-  /* Base colors for light theme */
-  --color-base-100: oklch(98% 0 0);             /* Near white background */
-  --color-base-200: oklch(96% 0 0);             /* Light gray */
-  --color-base-300: oklch(92% 0 0);             /* Medium light gray */
-  --color-base-content: oklch(20% 0 0);         /* Dark text */
-
-  /* Primary - Blue */
-  --color-primary: oklch(55% 0.18 240);
-  --color-primary-content: oklch(98% 0 0);
-
-  /* Secondary - Purple */
-  --color-secondary: oklch(60% 0.15 300);
-  --color-secondary-content: oklch(98% 0 0);
-
-  /* Accent - Amber */
-  --color-accent: oklch(70% 0.18 70);
-  --color-accent-content: oklch(20% 0 0);
-
-  /* Neutral */
-  --color-neutral: oklch(50% 0.02 0);
-  --color-neutral-content: oklch(98% 0 0);
-
-  /* Status colors */
-  --color-info: oklch(60% 0.15 220);
-  --color-info-content: oklch(98% 0 0);
-  
-  --color-success: oklch(60% 0.18 140);
-  --color-success-content: oklch(98% 0 0);
-  
-  --color-warning: oklch(75% 0.16 80);
-  --color-warning-content: oklch(20% 0 0);
-  
-  --color-error: oklch(60% 0.20 20);
-  --color-error-content: oklch(98% 0 0);
-
-  /* Semantic Color Aliases */
-  --color-text-primary: var(--color-base-content);
-  --color-text-secondary: oklch(20% 0 0 / 0.7);
-  --color-text-muted: oklch(20% 0 0 / 0.5);
-  --color-text-disabled: oklch(20% 0 0 / 0.3);
-  
-  --color-border-default: oklch(20% 0 0 / 0.15);
-  --color-border-subtle: oklch(20% 0 0 / 0.08);
-  --color-border-strong: oklch(20% 0 0 / 0.25);
-  
-  --color-bg-subtle: oklch(96% 0 0 / 0.5);
-  --color-bg-elevated: oklch(100% 0 0);
-  --color-bg-overlay: oklch(98% 0 0 / 0.95);
-
-  /* Component-specific */
-  --rounded-box: var(--radius-lg);
-  --rounded-btn: var(--radius-md);
-  --rounded-badge: var(--radius-base);
-  --animation-btn: var(--duration-base);
-  --animation-input: var(--duration-fast);
-  --btn-focus-scale: 0.98;
-  --border-btn: 1px;
-  --tab-border: 1px;
-  --tab-radius: var(--radius-lg);
-}
-
-/* ===================================================================
    Font Configuration
    =================================================================== */
 
 @font-face {
   font-family: "Comic Code";
-  src: url("/static/fonts/ComicCodeLigatures-Regular.otf") format("opentype");
+  src: url("/static/fonts/ComicCodeLigaturesNerdFont.otf") format("opentype");
   font-weight: normal;
   font-style: normal;
   font-display: swap;
@@ -294,12 +228,6 @@
     outline: none;
   }
 
-  /* Smooth transitions for theme switching and interactions */
-  * {
-    transition: color var(--duration-fast) var(--ease-out),
-                background-color var(--duration-fast) var(--ease-out),
-                border-color var(--duration-fast) var(--ease-out);
-  }
 
   /* Button and input focus states inherit DaisyUI behavior */
   .btn {

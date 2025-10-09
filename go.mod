@@ -3,7 +3,7 @@ module pippaothy
 go 1.24.0
 
 require (
-	github.com/a-h/templ v0.3.924
+	github.com/a-h/templ v0.3.943
 	github.com/jmoiron/sqlx v1.4.0
 	github.com/lib/pq v1.10.9
 	github.com/spf13/cobra v1.9.1

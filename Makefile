@@ -1,63 +1,70 @@
 APP_NAME := pippaothy
+GOPATH := $(shell go env GOPATH)
 
-# Tool paths - can be overridden with environment variables
-TAILWIND_BIN ?= $(shell which tailwindcss || echo "$(HOME)/bin/tailwindcss")
-TEMPL_BIN ?= $(shell which templ || echo "$(shell go env GOPATH)/bin/templ")
-AIR_BIN ?= $(shell which air || echo "$(shell go env GOPATH)/bin/air")
+# Tool paths
+TAILWINDCSS := $(GOPATH)/bin/tailwindcss
+TEMPL := $(GOPATH)/bin/templ
+AIR := $(GOPATH)/bin/air
 
+# Load environment variables from .env
 ifneq (,$(wildcard .env))
     include .env
-    export $(shell sed 's/=.*//' .env)
+    export
 endif
 
-.PHONY: tailwind-build templ-generate build tailwind-watch templ-watch dev install-tools
+.PHONY: tailwind-build templ-generate build tailwind-watch templ-watch dev install-tools clean
 
 # Tool installation
 install-tools:
 	@echo "Installing development tools..."
-	@if ! command -v tailwindcss >/dev/null 2>&1; then \
+	@if ! test -f $(TAILWINDCSS); then \
 		echo "Installing Tailwind CSS..."; \
-		curl -sLO https://github.com/tailwindlabs/tailwindcss/releases/latest/download/tailwindcss-$$(uname -s | tr '[:upper:]' '[:lower:]')-$$(uname -m | sed 's/x86_64/x64/'); \
-		chmod +x tailwindcss-*; \
-		mkdir -p $(HOME)/bin; \
-		mv tailwindcss-* $(HOME)/bin/tailwindcss; \
+		ARCH=$$(uname -m | sed 's/x86_64/x64/;s/aarch64/arm64/'); \
+		OS=$$(uname -s | tr '[:upper:]' '[:lower:]'); \
+		curl -sLO "https://github.com/tailwindlabs/tailwindcss/releases/latest/download/tailwindcss-$${OS}-$${ARCH}"; \
+		chmod +x "tailwindcss-$${OS}-$${ARCH}"; \
+		mkdir -p $(GOPATH)/bin; \
+		mv "tailwindcss-$${OS}-$${ARCH}" $(GOPATH)/bin/tailwindcss; \
+		echo "Installed tailwindcss to $(GOPATH)/bin/tailwindcss"; \
 	fi
-	@if ! command -v templ >/dev/null 2>&1; then \
+	@if ! test -f $(TEMPL); then \
 		echo "Installing templ..."; \
 		go install github.com/a-h/templ/cmd/templ@latest; \
 	fi
-	@if ! command -v air >/dev/null 2>&1; then \
+	@if ! test -f $(AIR); then \
 		echo "Installing air..."; \
-		go install github.com/cosmtrek/air@latest; \
+		go install github.com/air-verse/air@latest; \
 	fi
+	@echo "Done! Tools installed to $(GOPATH)/bin"
 
 # Build targets
 tailwind-build:
-	@if [ ! -f "$(TAILWIND_BIN)" ]; then echo "Tailwind CSS not found. Run 'make install-tools' first."; exit 1; fi
-	$(TAILWIND_BIN) --input ./static/css/input.css --output ./static/css/output.css
+	@test -f $(TAILWINDCSS) || { echo "Tailwind CSS not found. Run 'make install-tools' first."; exit 1; }
+	$(TAILWINDCSS) --input ./static/css/input.css --output ./static/css/output.css
 
 templ-generate:
-	@if [ ! -f "$(TEMPL_BIN)" ]; then echo "Templ not found. Run 'make install-tools' first."; exit 1; fi
-	$(TEMPL_BIN) generate
+	@test -f $(TEMPL) || { echo "Templ not found. Run 'make install-tools' first."; exit 1; }
+	$(TEMPL) generate
 
 build: tailwind-build templ-generate
-	go build -o ./bin/$(APP_NAME) ./cmd/main.go
-
-build-scraper:
-	go build -o ./bin/hbh-scraper ./cmd/hbh_scraper.go
+	go build -o ./bin/$(APP_NAME) ./main.go
 
 # Watchers
 tailwind-watch:
-	@if [ ! -f "$(TAILWIND_BIN)" ]; then echo "Tailwind CSS not found. Run 'make install-tools' first."; exit 1; fi
-	$(TAILWIND_BIN) --input ./static/css/input.css --output ./static/css/output.css --watch
+	@test -f $(TAILWINDCSS) || { echo "Tailwind CSS not found. Run 'make install-tools' first."; exit 1; }
+	$(TAILWINDCSS) --input ./static/css/input.css --output ./static/css/output.css --watch
 
 templ-watch:
-	@if [ ! -f "$(TEMPL_BIN)" ]; then echo "Templ not found. Run 'make install-tools' first."; exit 1; fi
-	$(TEMPL_BIN) generate --watch
+	@test -f $(TEMPL) || { echo "Templ not found. Run 'make install-tools' first."; exit 1; }
+	$(TEMPL) generate --watch
 
 dev: build
-	$(MAKE) tailwind-watch &
-	$(MAKE) templ-watch &
-	@if [ ! -f "$(AIR_BIN)" ]; then echo "Air not found. Run 'make install-tools' first."; exit 1; fi
-	DB_HOST=$(DB_HOST) DB_PORT=$(DB_PORT) DB_USER=$(DB_USER) DB_PASSWORD=$(DB_PASSWORD) DB_NAME=$(DB_NAME) $(AIR_BIN)
+	@test -f $(AIR) || { echo "Air not found. Run 'make install-tools' first."; exit 1; }
+	@trap 'kill 0' EXIT; \
+	$(MAKE) tailwind-watch & \
+	$(MAKE) templ-watch & \
+	$(AIR)
+
+clean:
+	rm -rf ./bin
 

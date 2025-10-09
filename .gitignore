@@ -3,6 +3,7 @@
 *.swp
 tmp
 .env
+.db_env
 scratch*
 
 # mac

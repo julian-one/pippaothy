@@ -50,7 +50,6 @@ CREATE TABLE IF NOT EXISTS recipes (
 	cuisine TEXT,
 	category TEXT,
 	image_url TEXT,
-	is_public BOOLEAN DEFAULT TRUE,
 	created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
 	updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
 	FOREIGN KEY (user_id) REFERENCES users (user_id) ON DELETE CASCADE
@@ -78,6 +77,5 @@ CREATE TABLE IF NOT EXISTS recipe_instructions (
 );
 
 CREATE INDEX IF NOT EXISTS idx_recipes_user ON recipes (user_id);
-CREATE INDEX IF NOT EXISTS idx_recipes_public ON recipes (is_public);
 CREATE INDEX IF NOT EXISTS idx_ingredients_recipe ON recipe_ingredients (recipe_id);
 CREATE INDEX IF NOT EXISTS idx_instructions_recipe ON recipe_instructions (recipe_id);

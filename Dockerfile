@@ -12,14 +12,16 @@ COPY go.mod go.sum ./
 RUN go mod download
 
 # Copy only necessary source files (not entire context)
+COPY main.go ./
 COPY cmd/ ./cmd/
 COPY internal/ ./internal/
+COPY route/ ./route/
 COPY schema/ ./schema/
 COPY static/ ./static/
 
 # Generate templates and build in one RUN to reduce layers
 RUN templ generate && \
-    CGO_ENABLED=0 GOOS=linux GOARCH=arm64 go build -ldflags="-w -s" -o pippaothy ./cmd/main.go
+    CGO_ENABLED=0 GOOS=linux GOARCH=arm64 go build -ldflags="-w -s" -o pippaothy ./main.go
 
 # Runtime stage
 FROM alpine:latest
