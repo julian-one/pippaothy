@@ -15,7 +15,6 @@ templ Layout(contents templ.Component, title string, loggedIn bool) {
 			<link rel="stylesheet" href={ fmt.Sprintf("/static/css/output.css?v=%d", time.Now().Unix()) }/>
 			<script src={ fmt.Sprintf("/static/js/htmx.min.js?v=%d", time.Now().Unix()) }></script>
 			<script src={ fmt.Sprintf("/static/js/htmx-ext-response-targets.js?v=%d", time.Now().Unix()) }></script>
-			<script src={ fmt.Sprintf("/static/js/htmx-ext-sse.js?v=%d", time.Now().Unix()) }></script>
 		</head>
 		<body hx-ext="response-targets" class="min-h-screen flex flex-col bg-base-100">
 			<div class="navbar navbar-modern sticky top-0 z-sticky">
@@ -55,7 +54,7 @@ templ Layout(contents templ.Component, title string, loggedIn bool) {
 					</a>
 				</div>
 				<div class="navbar-center hidden md:flex">
-					<a href="/about" class="btn btn-ghost btn-sm hover-lift">About the Human</a>
+					<a href="/about" class="btn btn-ghost btn-md hover-lift">About the Human</a>
 					if loggedIn {
 						<a href="/recipes" class="btn btn-ghost btn-sm hover-lift">Recipes</a>
 					}
@@ -86,39 +85,4 @@ templ Layout(contents templ.Component, title string, loggedIn bool) {
 			</main>
 		</body>
 	</html>
-}
-
-templ Home(name, message string) {
-	<div class="space-y-12 animate-fade-in">
-		// Success message at top
-		if message != "" {
-			<div class="flex justify-center">
-				<div class="alert alert-success max-w-lg shadow-lg animate-slide-up">
-					<svg xmlns="http://www.w3.org/2000/svg" class="stroke-current shrink-0 h-6 w-6" fill="none" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
-					<span>{ message }</span>
-				</div>
-			</div>
-		}
-		// Welcome header
-		<div class="text-center">
-			if name != "" {
-				<h1 class="text-5xl font-light mb-4 text-base-content animate-slide-up">Welcome back</h1>
-				<p class="text-3xl text-primary font-semibold">{ name }</p>
-			} else {
-				<h1 class="text-5xl font-light text-base-content animate-slide-up">Welcome to <span class="text-primary">Pippaothy</span></h1>
-				<p class="text-lg text-muted mt-2">Named after the star below, <span class="text-warning font-semibold">Pippa</span> 🐾</p>
-			}
-		</div>
-		// Hero image with improved styling
-		<div class="flex justify-center">
-			<div class="max-w-4xl w-full overflow-hidden rounded-2xl shadow-2xl card-hover">
-				<img
-					src={ fmt.Sprintf("/static/images/pippa.jpg?v=%d", time.Now().Unix()) }
-					class="w-full h-auto"
-					alt="Pippa"
-					loading="eager"
-				/>
-			</div>
-		</div>
-	</div>
 }

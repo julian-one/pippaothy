@@ -74,12 +74,12 @@ func Create(ctx context.Context, db *sqlx.DB, userId int64, req CreateRecipeRequ
 	var recipeId int64
 	err = tx.QueryRowContext(ctx, `
 		INSERT INTO recipes (
-			user_id, title, description, prep_time, cook_time, 
-			servings, difficulty, cuisine, category, image_url, is_public
-		) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
+			user_id, title, description, prep_time, cook_time,
+			servings, difficulty, cuisine, category, image_url
+		) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
 		RETURNING recipe_id`,
 		userId, req.Title, req.Description, req.PrepTime, req.CookTime,
-		req.Servings, req.Difficulty, req.Cuisine, req.Category, req.ImageUrl, req.IsPublic,
+		req.Servings, req.Difficulty, req.Cuisine, req.Category, req.ImageUrl,
 	).Scan(&recipeId)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create recipe: %w", err)
@@ -161,11 +161,11 @@ func GetByIdForUser(ctx context.Context, db *sqlx.DB, recipeId, userId int64) (*
 	if err != nil {
 		return nil, err
 	}
-	
-	if !recipe.Recipe.IsPublic && recipe.Recipe.UserId != userId {
+
+	if recipe.Recipe.UserId != userId {
 		return nil, errors.New("recipe not found")
 	}
-	
+
 	return recipe, nil
 }
 
@@ -238,12 +238,7 @@ func Update(ctx context.Context, db *sqlx.DB, recipeId, userId int64, req Update
 		args = append(args, *req.ImageUrl)
 		argCount++
 	}
-	if req.IsPublic != nil {
-		updates = append(updates, fmt.Sprintf("is_public = $%d", argCount))
-		args = append(args, *req.IsPublic)
-		argCount++
-	}
-	
+
 	if len(updates) > 0 {
 		updates = append(updates, "updated_at = CURRENT_TIMESTAMP")
 		args = append(args, recipeId)
@@ -333,13 +328,7 @@ func List(ctx context.Context, db *sqlx.DB, filter ListRecipesFilter) ([]Recipe,
 		args = append(args, *filter.UserId)
 		argCount++
 	}
-	
-	if filter.IsPublic != nil {
-		query += fmt.Sprintf(" AND is_public = $%d", argCount)
-		args = append(args, *filter.IsPublic)
-		argCount++
-	}
-	
+
 	if filter.Category != nil {
 		query += fmt.Sprintf(" AND category = $%d", argCount)
 		args = append(args, *filter.Category)
@@ -394,8 +383,8 @@ func GetUserRecipeCount(ctx context.Context, db *sqlx.DB, userId int64) (int, er
 func GetCategories(ctx context.Context, db *sqlx.DB) ([]string, error) {
 	var categories []string
 	err := db.SelectContext(ctx, &categories, `
-		SELECT DISTINCT category FROM recipes 
-		WHERE category IS NOT NULL AND is_public = true 
+		SELECT DISTINCT category FROM recipes
+		WHERE category IS NOT NULL
 		ORDER BY category`)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get categories: %w", err)
@@ -406,8 +395,8 @@ func GetCategories(ctx context.Context, db *sqlx.DB) ([]string, error) {
 func GetCuisines(ctx context.Context, db *sqlx.DB) ([]string, error) {
 	var cuisines []string
 	err := db.SelectContext(ctx, &cuisines, `
-		SELECT DISTINCT cuisine FROM recipes 
-		WHERE cuisine IS NOT NULL AND is_public = true 
+		SELECT DISTINCT cuisine FROM recipes
+		WHERE cuisine IS NOT NULL
 		ORDER BY cuisine`)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get cuisines: %w", err)

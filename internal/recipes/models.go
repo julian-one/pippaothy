@@ -16,7 +16,6 @@ type Recipe struct {
 	Cuisine     *string    `db:"cuisine" json:"cuisine,omitempty"`
 	Category    *string    `db:"category" json:"category,omitempty"`
 	ImageUrl    *string    `db:"image_url" json:"image_url,omitempty"`
-	IsPublic    bool       `db:"is_public" json:"is_public"`
 	CreatedAt   time.Time  `db:"created_at" json:"created_at"`
 	UpdatedAt   time.Time  `db:"updated_at" json:"updated_at"`
 }
@@ -56,7 +55,6 @@ type CreateRecipeRequest struct {
 	Cuisine      *string                    `json:"cuisine,omitempty"`
 	Category     *string                    `json:"category,omitempty"`
 	ImageUrl     *string                    `json:"image_url,omitempty"`
-	IsPublic     bool                       `json:"is_public"`
 	Ingredients  []CreateIngredientRequest  `json:"ingredients"`
 	Instructions []CreateInstructionRequest `json:"instructions"`
 }
@@ -84,14 +82,12 @@ type UpdateRecipeRequest struct {
 	Cuisine      *string                    `json:"cuisine,omitempty"`
 	Category     *string                    `json:"category,omitempty"`
 	ImageUrl     *string                    `json:"image_url,omitempty"`
-	IsPublic     *bool                      `json:"is_public,omitempty"`
 	Ingredients  []CreateIngredientRequest  `json:"ingredients,omitempty"`
 	Instructions []CreateInstructionRequest `json:"instructions,omitempty"`
 }
 
 type ListRecipesFilter struct {
 	UserId   *int64  `json:"user_id,omitempty"`
-	IsPublic *bool   `json:"is_public,omitempty"`
 	Category *string `json:"category,omitempty"`
 	Cuisine  *string `json:"cuisine,omitempty"`
 	Search   *string `json:"search,omitempty"`
