@@ -16,28 +16,40 @@ templ Layout(contents templ.Component, title string, loggedIn bool) {
 			<script src={ fmt.Sprintf("/static/js/htmx.min.js?v=%d", time.Now().Unix()) }></script>
 			<script src={ fmt.Sprintf("/static/js/htmx-ext-response-targets.js?v=%d", time.Now().Unix()) }></script>
 			<script src={ fmt.Sprintf("/static/js/htmx-ext-sse.js?v=%d", time.Now().Unix()) }></script>
-			<script>
-				// Theme management
-				function initTheme() {
-					const savedTheme = localStorage.getItem('theme') || 'vague';
-					document.documentElement.setAttribute('data-theme', savedTheme);
-				}
-				
-				function toggleTheme() {
-					const html = document.documentElement;
-					const currentTheme = html.getAttribute('data-theme');
-					const newTheme = currentTheme === 'vague' ? 'light' : 'vague';
-					html.setAttribute('data-theme', newTheme);
-					localStorage.setItem('theme', newTheme);
-				}
-				
-				// Initialize theme on page load
-				initTheme();
-			</script>
 		</head>
 		<body hx-ext="response-targets" class="min-h-screen flex flex-col bg-base-100">
 			<div class="navbar navbar-modern sticky top-0 z-sticky">
 				<div class="navbar-start">
+					<!-- Mobile menu button -->
+					<div class="dropdown md:hidden">
+						<label tabindex="0" class="btn btn-ghost btn-circle" aria-label="Open menu">
+							<svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+								<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h16"></path>
+							</svg>
+						</label>
+						<ul tabindex="0" class="menu menu-sm dropdown-content mt-3 z-[1] p-2 shadow bg-base-100 rounded-box w-52">
+							<li><a href="/about">About the Human</a></li>
+							if loggedIn {
+								<li><a href="/recipes">Recipes</a></li>
+							}
+							<li class="mt-2 pt-2 border-t border-base-300">
+								if !loggedIn {
+									<a href="/register">Register</a>
+									<a href="/login">Login</a>
+								} else {
+									<button
+										type="button"
+										hx-post="/logout"
+										hx-target="body"
+										hx-swap="outerHTML"
+										class="text-left"
+									>
+										Logout
+									</button>
+								}
+							</li>
+						</ul>
+					</div>
 					<a href="/" class="btn btn-ghost text-lg font-medium normal-case hover-glow">
 						<span class="text-primary">Pippaothy</span>
 					</a>
@@ -49,30 +61,22 @@ templ Layout(contents templ.Component, title string, loggedIn bool) {
 					}
 				</div>
 				<div class="navbar-end gap-2">
-					<!-- Theme Toggle -->
-					<button
-						onclick="toggleTheme()"
-						class="btn btn-ghost btn-circle btn-sm touch-target"
-						aria-label="Toggle theme"
-					>
-						<svg class="swap-off h-5 w-5" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-							<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20.354 15.354A9 9 0 018.646 3.646 9.003 9.003 0 0012 21a9.003 9.003 0 008.354-5.646z"></path>
-						</svg>
-					</button>
-					if !loggedIn {
-						<a href="/register" class="btn btn-ghost btn-sm hover-lift">Register</a>
-						<a href="/login" class="btn btn-primary btn-sm hover-glow">Login</a>
-					} else {
-						<button
-							type="button"
-							hx-post="/logout"
-							hx-target="body"
-							hx-swap="outerHTML"
-							class="btn btn-ghost btn-sm hover-lift"
-						>
-							Logout
-						</button>
-					}
+					<div class="hidden md:flex gap-2">
+						if !loggedIn {
+							<a href="/register" class="btn btn-ghost btn-sm hover-lift">Register</a>
+							<a href="/login" class="btn btn-primary btn-sm hover-glow">Login</a>
+						} else {
+							<button
+								type="button"
+								hx-post="/logout"
+								hx-target="body"
+								hx-swap="outerHTML"
+								class="btn btn-ghost btn-sm hover-lift"
+							>
+								Logout
+							</button>
+						}
+					</div>
 				</div>
 			</div>
 			<main class="flex-1 container mx-auto px-4 section-spacing">
