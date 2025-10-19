@@ -7,10 +7,9 @@ import (
 	"strconv"
 	"strings"
 
-	ctxkeys "pippaothy/internal/context"
+	"pippaothy/internal/middleware"
 	"pippaothy/internal/recipes"
 	"pippaothy/internal/templates"
-	"pippaothy/internal/users"
 
 	"github.com/jmoiron/sqlx"
 )
@@ -19,7 +18,7 @@ import (
 func GetRecipes(db *sqlx.DB, logger *slog.Logger) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		// Get user from context
-		user, _ := r.Context().Value(ctxkeys.UserContextKey).(*users.User)
+		user := middleware.GetUserFromContext(r)
 		if user == nil {
 			http.Redirect(w, r, "/login", http.StatusSeeOther)
 			return
@@ -47,7 +46,7 @@ func GetRecipes(db *sqlx.DB, logger *slog.Logger) http.HandlerFunc {
 func GetRecipe(db *sqlx.DB, logger *slog.Logger) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		// Get user from context
-		user, _ := r.Context().Value(ctxkeys.UserContextKey).(*users.User)
+		user := middleware.GetUserFromContext(r)
 		if user == nil {
 			http.Redirect(w, r, "/login", http.StatusSeeOther)
 			return
@@ -79,7 +78,7 @@ func GetRecipe(db *sqlx.DB, logger *slog.Logger) http.HandlerFunc {
 func GetNewRecipe() http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		// Get user from context
-		user, _ := r.Context().Value(ctxkeys.UserContextKey).(*users.User)
+		user := middleware.GetUserFromContext(r)
 		if user == nil {
 			http.Redirect(w, r, "/login", http.StatusSeeOther)
 			return
@@ -95,7 +94,7 @@ func GetNewRecipe() http.HandlerFunc {
 func PostRecipe(db *sqlx.DB, logger *slog.Logger) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		// Get user from context
-		user, _ := r.Context().Value(ctxkeys.UserContextKey).(*users.User)
+		user := middleware.GetUserFromContext(r)
 		if user == nil {
 			w.WriteHeader(http.StatusUnauthorized)
 			templates.Error("Please login to create recipes").Render(r.Context(), w)
@@ -148,7 +147,7 @@ func PostRecipe(db *sqlx.DB, logger *slog.Logger) http.HandlerFunc {
 func GetEditRecipe(db *sqlx.DB, logger *slog.Logger) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		// Get user from context
-		user, _ := r.Context().Value(ctxkeys.UserContextKey).(*users.User)
+		user := middleware.GetUserFromContext(r)
 		if user == nil {
 			http.Redirect(w, r, "/login", http.StatusSeeOther)
 			return
@@ -183,7 +182,7 @@ func GetEditRecipe(db *sqlx.DB, logger *slog.Logger) http.HandlerFunc {
 func PutRecipe(db *sqlx.DB, logger *slog.Logger) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		// Get user from context
-		user, _ := r.Context().Value(ctxkeys.UserContextKey).(*users.User)
+		user := middleware.GetUserFromContext(r)
 		if user == nil {
 			w.WriteHeader(http.StatusUnauthorized)
 			templates.Error("Please login to update recipes").Render(r.Context(), w)
@@ -244,7 +243,7 @@ func PutRecipe(db *sqlx.DB, logger *slog.Logger) http.HandlerFunc {
 func DeleteRecipe(db *sqlx.DB, logger *slog.Logger) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		// Get user from context
-		user, _ := r.Context().Value(ctxkeys.UserContextKey).(*users.User)
+		user := middleware.GetUserFromContext(r)
 		if user == nil {
 			w.WriteHeader(http.StatusUnauthorized)
 			templates.Error("Please login to delete recipes").Render(r.Context(), w)

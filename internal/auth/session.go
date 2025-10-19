@@ -8,40 +8,29 @@ import (
 	"fmt"
 	"net/http"
 	"os"
-	"pippaothy/internal/users"
 	"strings"
 	"time"
+
+	"pippaothy/internal/users"
 
 	"github.com/jmoiron/sqlx"
 )
 
 type Session struct {
-	// Primary identifier
-	SessionId string `db:"session_id" json:"session_id"`
-
-	// Relationships
-	UserId int64 `db:"user_id" json:"user_id"`
-
-	// Session data
-	FlashMessage *string `db:"flash_message" json:"flash_message,omitempty"`
-
-	// Expiration
-	ExpiresAt time.Time `db:"expires_at" json:"expires_at"`
+	SessionId    string    `db:"session_id"    json:"session_id"`
+	UserId       int64     `db:"user_id"       json:"user_id"`
+	FlashMessage *string   `db:"flash_message" json:"flash_message,omitempty"`
+	ExpiresAt    time.Time `db:"expires_at"    json:"expires_at"`
 }
 
-// isProduction checks if the application is running in production mode
-// based on environment variables
 func isProduction() bool {
 	env := strings.ToLower(os.Getenv("GO_ENV"))
 	if env == "production" || env == "prod" {
 		return true
 	}
-
-	// Check if TLS_ENABLED is explicitly set
 	if strings.ToLower(os.Getenv("TLS_ENABLED")) == "true" {
 		return true
 	}
-
 	return false
 }
 
@@ -97,7 +86,7 @@ func SetCookie(w http.ResponseWriter, token string) {
 	isSecure := isProduction()
 	sameSite := http.SameSiteLaxMode
 	if isSecure {
-		sameSite = http.SameSiteStrictMode // Use Strict in production for better security
+		sameSite = http.SameSiteStrictMode
 	}
 
 	http.SetCookie(w, &http.Cookie{
@@ -106,8 +95,8 @@ func SetCookie(w http.ResponseWriter, token string) {
 		Path:     "/",
 		Expires:  time.Now().Add(24 * time.Hour),
 		HttpOnly: true,
-		Secure:   isSecure, // Dynamic based on environment
-		SameSite: sameSite, // Dynamic based on environment
+		Secure:   isSecure,
+		SameSite: sameSite,
 	})
 }
 
@@ -124,8 +113,8 @@ func ResetCookie(w http.ResponseWriter) {
 		Path:     "/",
 		Expires:  time.Now(),
 		HttpOnly: true,
-		Secure:   isSecure, // Dynamic based on environment
-		SameSite: sameSite, // Dynamic based on environment
+		Secure:   isSecure,
+		SameSite: sameSite,
 	})
 }
 

@@ -29,7 +29,7 @@ func runServe(cmd *cobra.Command, args []string) {
 	logger := slog.Default()
 
 	// Initialize database
-	db, err := database.NewDB()
+	db, err := database.Create()
 	if err != nil {
 		logger.Error("Failed to connect to database", "error", err)
 		os.Exit(1)
@@ -37,7 +37,7 @@ func runServe(cmd *cobra.Command, args []string) {
 	defer db.Close()
 
 	// Initialize routes
-	mux := route.Initialize(db.DB, logger)
+	mux := route.Initialize(db, logger)
 
 	// Create HTTP server
 	server := &http.Server{
@@ -52,3 +52,4 @@ func runServe(cmd *cobra.Command, args []string) {
 		os.Exit(1)
 	}
 }
+

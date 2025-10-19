@@ -13,7 +13,6 @@ var root = &cobra.Command{
 It provides both a web server and other utilities for managing the application`,
 }
 
-// Execute runs the root command
 func Execute() {
 	err := root.Execute()
 	if err != nil {
@@ -22,10 +21,6 @@ func Execute() {
 }
 
 func init() {
-	// Add commands
 	root.AddCommand(serveCmd)
-	// Add more commands here as your application grows
-	// root.AddCommand(migrateCmd)
-	// root.AddCommand(seedCmd)
-	// root.AddCommand(versionCmd)
 }
+

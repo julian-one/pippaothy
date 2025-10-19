@@ -3,22 +3,18 @@ package route
 import (
 	"net/http"
 
-	ctxkeys "pippaothy/internal/context"
+	"pippaothy/internal/middleware"
 	"pippaothy/internal/templates"
-	"pippaothy/internal/users"
 )
 
 // GetHome returns a handler for the home page
 func GetHome() http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		// Get user from context
-		user, _ := r.Context().Value(ctxkeys.UserContextKey).(*users.User)
+		user := middleware.GetUserFromContext(r)
 
 		// Get flash message from context
-		flashMessage := ""
-		if msg, ok := r.Context().Value(ctxkeys.FlashMessageContextKey).(string); ok {
-			flashMessage = msg
-		}
+		flashMessage := middleware.GetFlashMessageFromContext(r)
 
 		userName := ""
 		loggedIn := user != nil
