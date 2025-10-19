@@ -12,7 +12,7 @@ import (
 
 	"pippaothy/internal/email"
 	"pippaothy/internal/templates"
-	"pippaothy/internal/users"
+	"pippaothy/internal/user"
 
 	"github.com/jmoiron/sqlx"
 )
@@ -86,7 +86,7 @@ func PostForgotPassword(db *sqlx.DB, logger *slog.Logger) http.HandlerFunc {
 
 		emailAddr := strings.TrimSpace(strings.ToLower(r.FormValue("email")))
 
-		if err := users.ValidateEmail(emailAddr); err != nil {
+		if err := user.ValidateEmail(emailAddr); err != nil {
 			logger.Warn("forgot password failed - invalid email format", "email", emailAddr)
 			w.Header().Set("Content-Type", "text/html")
 			w.WriteHeader(http.StatusOK)
@@ -98,7 +98,7 @@ func PostForgotPassword(db *sqlx.DB, logger *slog.Logger) http.HandlerFunc {
 			return
 		}
 
-		token, err := users.CreatePasswordReset(r.Context(), db, emailAddr)
+		token, err := user.CreatePasswordReset(r.Context(), db, emailAddr)
 		if err != nil {
 			logger.Error("failed to create password reset", "error", err, "email", emailAddr)
 			w.Header().Set("Content-Type", "text/html")
@@ -157,7 +157,7 @@ func GetResetPassword(db *sqlx.DB, logger *slog.Logger) http.HandlerFunc {
 			return
 		}
 
-		_, err := users.ValidateResetToken(r.Context(), db, token)
+		_, err := user.ValidateResetToken(r.Context(), db, token)
 		if err != nil {
 			logger.Warn("invalid reset token accessed", "token", token, "error", err)
 			w.Header().Set("Content-Type", "text/html")
@@ -215,7 +215,7 @@ func PostResetPassword(db *sqlx.DB, logger *slog.Logger) http.HandlerFunc {
 			return
 		}
 
-		err := users.ResetPassword(r.Context(), db, token, password)
+		err := user.ResetPassword(r.Context(), db, token, password)
 		if err != nil {
 			logger.Warn("password reset failed", "error", err)
 			w.Header().Set("Content-Type", "text/html")

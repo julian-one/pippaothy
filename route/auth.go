@@ -7,7 +7,7 @@ import (
 
 	"pippaothy/internal/auth"
 	"pippaothy/internal/templates"
-	"pippaothy/internal/users"
+	"pippaothy/internal/user"
 
 	"github.com/jmoiron/sqlx"
 )
@@ -36,7 +36,7 @@ func PostLogin(db *sqlx.DB, logger *slog.Logger) http.HandlerFunc {
 		password := r.FormValue("password")
 
 		// Validate email format
-		if err := users.ValidateEmail(email); err != nil {
+		if err := user.ValidateEmail(email); err != nil {
 			logger.Warn("login failed - invalid email format", "email", email)
 			w.Header().Set("Content-Type", "text/html")
 			w.WriteHeader(http.StatusBadRequest)
@@ -54,7 +54,7 @@ func PostLogin(db *sqlx.DB, logger *slog.Logger) http.HandlerFunc {
 		}
 
 		// Get user by email
-		user, err := users.ByEmail(r.Context(), db, email)
+		u, err := user.ByEmail(r.Context(), db, email)
 		if err != nil {
 			logger.Warn("login failed - user not found", "email", email)
 			w.Header().Set("Content-Type", "text/html")
@@ -64,7 +64,7 @@ func PostLogin(db *sqlx.DB, logger *slog.Logger) http.HandlerFunc {
 		}
 
 		// Verify password
-		if !users.VerifyPassword(user, password) {
+		if !user.VerifyPassword(u, password) {
 			logger.Warn("login failed - invalid password", "email", email)
 			w.Header().Set("Content-Type", "text/html")
 			w.WriteHeader(http.StatusUnauthorized)
@@ -73,7 +73,7 @@ func PostLogin(db *sqlx.DB, logger *slog.Logger) http.HandlerFunc {
 		}
 
 		// Create session
-		token, err := auth.CreateSession(r.Context(), db, user.UserId)
+		token, err := auth.CreateSession(r.Context(), db, u.UserId)
 		if err != nil {
 			logger.Error("failed to create session", "error", err)
 			w.Header().Set("Content-Type", "text/html")
@@ -89,7 +89,7 @@ func PostLogin(db *sqlx.DB, logger *slog.Logger) http.HandlerFunc {
 			logger.Error("failed to set flash message", "error", err)
 		}
 
-		logger.Info("user logged in successfully", "uid", user.UserId)
+		logger.Info("user logged in successfully", "uid", u.UserId)
 
 		w.Header().Set("HX-Redirect", "/")
 		w.WriteHeader(http.StatusOK)
@@ -135,7 +135,7 @@ func PostRegister(db *sqlx.DB, logger *slog.Logger) http.HandlerFunc {
 			return
 		}
 
-		request := users.CreateRequest{
+		request := user.CreateRequest{
 			FirstName: r.FormValue("first_name"),
 			LastName:  r.FormValue("last_name"),
 			Email:     r.FormValue("email"),
@@ -155,7 +155,7 @@ func PostRegister(db *sqlx.DB, logger *slog.Logger) http.HandlerFunc {
 		}
 
 		// Check if user already exists
-		if users.Exists(r.Context(), db, request.Email) {
+		if user.Exists(r.Context(), db, request.Email) {
 			logger.Warn("registration attempt with existing email", "email", request.Email)
 			w.Header().Set("Content-Type", "text/html")
 			w.WriteHeader(http.StatusConflict)
@@ -164,7 +164,7 @@ func PostRegister(db *sqlx.DB, logger *slog.Logger) http.HandlerFunc {
 		}
 
 		// Create user
-		uid, err := users.Create(r.Context(), db, request)
+		uid, err := user.Create(r.Context(), db, request)
 		if err != nil {
 			logger.Error("failed to create user", "error", err)
 			w.Header().Set("Content-Type", "text/html")

@@ -11,7 +11,7 @@ import (
 	"strings"
 	"time"
 
-	"pippaothy/internal/users"
+	"pippaothy/internal/user"
 
 	"github.com/jmoiron/sqlx"
 )
@@ -69,9 +69,9 @@ func DestroySession(ctx context.Context, db *sqlx.DB, token string) error {
 	return nil
 }
 
-func GetSession(ctx context.Context, db *sqlx.DB, token string) (*users.User, error) {
-	var user users.User
-	err := db.GetContext(ctx, &user, `
+func GetSession(ctx context.Context, db *sqlx.DB, token string) (*user.User, error) {
+	var u user.User
+	err := db.GetContext(ctx, &u, `
 		SELECT u.* FROM users u
 		INNER JOIN sessions s ON (s.user_id = u.user_id)
 		WHERE s.session_id = $1 AND s.expires_at > $2`,
@@ -79,7 +79,7 @@ func GetSession(ctx context.Context, db *sqlx.DB, token string) (*users.User, er
 	if err != nil {
 		return nil, fmt.Errorf("invalid session: %w", err)
 	}
-	return &user, nil
+	return &u, nil
 }
 
 func SetCookie(w http.ResponseWriter, token string) {

@@ -6,7 +6,7 @@ import (
 	"net/http"
 
 	"pippaothy/internal/auth"
-	"pippaothy/internal/users"
+	"pippaothy/internal/user"
 
 	"github.com/jmoiron/sqlx"
 )
@@ -39,7 +39,7 @@ func NewAuth(db *sqlx.DB, logger *slog.Logger) *AuthMiddleware {
 // WithAuth adds the authenticated user and flash message to the request context
 func (am *AuthMiddleware) WithAuth(next http.HandlerFunc) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		var user *users.User
+		var user *user.User
 		var flashMessage string
 
 		if cookie, err := r.Cookie("session_token"); err == nil {
@@ -63,7 +63,7 @@ func (am *AuthMiddleware) WithAuth(next http.HandlerFunc) http.HandlerFunc {
 // RequireAuth ensures the user is authenticated, redirecting to login if not
 func (am *AuthMiddleware) RequireAuth(next http.HandlerFunc) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		var user *users.User
+		var user *user.User
 		var flashMessage string
 
 		// Check for session cookie
@@ -95,8 +95,8 @@ func (am *AuthMiddleware) RequireAuth(next http.HandlerFunc) http.HandlerFunc {
 
 // GetUserFromContext retrieves the authenticated user from the request context
 // Returns nil if no user is found or if the type assertion fails
-func GetUserFromContext(r *http.Request) *users.User {
-	if user, ok := r.Context().Value(userContextKey).(*users.User); ok {
+func GetUserFromContext(r *http.Request) *user.User {
+	if user, ok := r.Context().Value(userContextKey).(*user.User); ok {
 		return user
 	}
 	return nil

@@ -8,7 +8,7 @@ import (
 	"strings"
 
 	"pippaothy/internal/middleware"
-	"pippaothy/internal/recipes"
+	"pippaothy/internal/recipe"
 	"pippaothy/internal/templates"
 
 	"github.com/jmoiron/sqlx"
@@ -24,13 +24,13 @@ func GetRecipes(db *sqlx.DB, logger *slog.Logger) http.HandlerFunc {
 			return
 		}
 
-		filter := recipes.ListRecipesFilter{
+		filter := recipe.ListRecipesFilter{
 			UserId: &user.UserId,
 			Limit:  50,
 			Offset: 0,
 		}
 
-		recipeList, err := recipes.List(r.Context(), db, filter)
+		recipeList, err := recipe.List(r.Context(), db, filter)
 		if err != nil {
 			logger.Error("failed to list recipes", "error", err)
 			http.Error(w, "Failed to load recipes", http.StatusInternalServerError)
@@ -59,7 +59,7 @@ func GetRecipe(db *sqlx.DB, logger *slog.Logger) http.HandlerFunc {
 			return
 		}
 
-		recipe, err := recipes.GetByIdForUser(r.Context(), db, recipeId, user.UserId)
+		recipe, err := recipe.GetByIdForUser(r.Context(), db, recipeId, user.UserId)
 		if err != nil {
 			logger.Error("failed to get recipe", "error", err, "recipeId", recipeId)
 			http.Error(w, "Recipe not found", http.StatusNotFound)
@@ -130,7 +130,7 @@ func PostRecipe(db *sqlx.DB, logger *slog.Logger) http.HandlerFunc {
 			return
 		}
 
-		recipe, err := recipes.Create(r.Context(), db, user.UserId, req)
+		recipe, err := recipe.Create(r.Context(), db, user.UserId, req)
 		if err != nil {
 			logger.Error("failed to create recipe", "error", err)
 			w.WriteHeader(http.StatusBadRequest)
@@ -160,7 +160,7 @@ func GetEditRecipe(db *sqlx.DB, logger *slog.Logger) http.HandlerFunc {
 			return
 		}
 
-		recipe, err := recipes.GetById(r.Context(), db, recipeId)
+		recipe, err := recipe.GetById(r.Context(), db, recipeId)
 		if err != nil {
 			logger.Error("failed to get recipe", "error", err, "recipeId", recipeId)
 			http.Error(w, "Recipe not found", http.StatusNotFound)
@@ -226,7 +226,7 @@ func PutRecipe(db *sqlx.DB, logger *slog.Logger) http.HandlerFunc {
 			return
 		}
 
-		recipe, err := recipes.Update(r.Context(), db, recipeId, user.UserId, req)
+		recipe, err := recipe.Update(r.Context(), db, recipeId, user.UserId, req)
 		if err != nil {
 			logger.Error("failed to update recipe", "error", err)
 			w.WriteHeader(http.StatusBadRequest)
@@ -258,7 +258,7 @@ func DeleteRecipe(db *sqlx.DB, logger *slog.Logger) http.HandlerFunc {
 			return
 		}
 
-		if err := recipes.Delete(r.Context(), db, recipeId, user.UserId); err != nil {
+		if err := recipe.Delete(r.Context(), db, recipeId, user.UserId); err != nil {
 			logger.Error("failed to delete recipe", "error", err)
 			w.WriteHeader(http.StatusBadRequest)
 			templates.Error(err.Error()).Render(r.Context(), w)
@@ -271,8 +271,8 @@ func DeleteRecipe(db *sqlx.DB, logger *slog.Logger) http.HandlerFunc {
 }
 
 // parseRecipeForm parses the recipe form data
-func parseRecipeForm(r *http.Request) recipes.CreateRecipeRequest {
-	req := recipes.CreateRecipeRequest{
+func parseRecipeForm(r *http.Request) recipe.CreateRecipeRequest {
+	req := recipe.CreateRecipeRequest{
 		Title: r.FormValue("title"),
 	}
 
@@ -315,17 +315,17 @@ func parseRecipeForm(r *http.Request) recipes.CreateRecipeRequest {
 	}
 
 	// Parse ingredients dynamically from form values
-	req.Ingredients = recipes.ParseIngredients(r)
+	req.Ingredients = recipe.ParseIngredients(r)
 
 	// Parse instructions dynamically from form values
-	req.Instructions = recipes.ParseInstructions(r)
+	req.Instructions = recipe.ParseInstructions(r)
 
 	return req
 }
 
 // parseUpdateRecipeForm parses the update recipe form data
-func parseUpdateRecipeForm(r *http.Request) recipes.UpdateRecipeRequest {
-	req := recipes.UpdateRecipeRequest{}
+func parseUpdateRecipeForm(r *http.Request) recipe.UpdateRecipeRequest {
+	req := recipe.UpdateRecipeRequest{}
 
 	title := strings.TrimSpace(r.FormValue("title"))
 	req.Title = &title
@@ -369,13 +369,13 @@ func parseUpdateRecipeForm(r *http.Request) recipes.UpdateRecipeRequest {
 	}
 
 	// Parse ingredients dynamically from form values
-	ingredients := recipes.ParseIngredients(r)
+	ingredients := recipe.ParseIngredients(r)
 	if len(ingredients) > 0 {
 		req.Ingredients = ingredients
 	}
 
 	// Parse instructions dynamically from form values
-	instructions := recipes.ParseInstructions(r)
+	instructions := recipe.ParseInstructions(r)
 	if len(instructions) > 0 {
 		req.Instructions = instructions
 	}
