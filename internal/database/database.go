@@ -9,24 +9,24 @@ import (
 	_ "github.com/lib/pq"
 )
 
-func GetPostgresConnectionString() string {
-	host := os.Getenv("DB_HOST")
-	port := os.Getenv("DB_PORT")
-	user := os.Getenv("DB_USER")
-	password := os.Getenv("DB_PASSWORD")
-	dbname := os.Getenv("DB_NAME")
-	return fmt.Sprintf(
-		"postgres://%s:%s@%s:%s/%s?sslmode=disable",
-		user,
-		password,
-		host,
-		port,
-		dbname,
-	)
+type Config struct {
+	Host     string
+	Port     string
+	User     string
+	Password string
+	Name     string
 }
 
-func Create() (*sqlx.DB, error) {
-	connStr := GetPostgresConnectionString()
+func New(cfg Config) (*sqlx.DB, error) {
+	connStr := fmt.Sprintf(
+		"postgres://%s:%s@%s:%s/%s?sslmode=disable",
+		cfg.User,
+		cfg.Password,
+		cfg.Host,
+		cfg.Port,
+		cfg.Name,
+	)
+
 	db, err := sqlx.Open("postgres", connStr)
 	if err != nil {
 		return nil, fmt.Errorf("failed to open the database: %w", err)

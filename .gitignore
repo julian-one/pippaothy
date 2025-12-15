@@ -1,21 +1,24 @@
-# general
-*.log
-*.swp
-tmp
-.env
-.db_env
-scratch*
-
-# mac
-.DS_Store
-
-# binaries
+# Binaries for programs and plugins
+*.exe
+*.exe~
+*.dll
+*.so
+*.dylib
 pippaothy
-main
-bin/*
 
-# templ generate files
-internal/templates/*.go
+# Test binary, built with `go test -c`
+*.test
 
-# tailwind generated files
-static/css/output.css
+# Code coverage profiles and other test artifacts
+*.out
+coverage.*
+*.coverprofile
+profile.cov
+
+# Go workspace file
+go.work
+go.work.sum
+
+# env file
+.env
+config.json
