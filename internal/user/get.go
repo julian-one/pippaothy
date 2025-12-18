@@ -7,14 +7,6 @@ import (
 	"github.com/jmoiron/sqlx"
 )
 
-func Exists(ctx context.Context, db *sqlx.DB, email string) bool {
-	var exists bool
-	if err := db.GetContext(ctx, &exists, `SELECT EXISTS (SELECT 1 FROM users WHERE email = $1)`, email); err != nil {
-		return false
-	}
-	return exists
-}
-
 func ByEmail(ctx context.Context, db *sqlx.DB, email string) (*User, error) {
 	var u User
 	err := db.GetContext(ctx, &u, `SELECT * FROM users WHERE email = $1`, email)

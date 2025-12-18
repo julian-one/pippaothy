@@ -45,8 +45,6 @@ func runServe(cmd *cobra.Command, args []string) {
 		os.Exit(1)
 	}
 
-	logger.Info("Using config file", "file", viper.ConfigFileUsed())
-
 	// Initialize database
 	dbConfig := database.Config{
 		Host:     viper.GetString("database.host"),
@@ -71,29 +69,34 @@ func runServe(cmd *cobra.Command, args []string) {
 		DB:       viper.GetInt("redis.db"),
 	}
 
-	redisClient, err := redis.New(ctx, redisConfig)
+	rdb, err := redis.New(ctx, redisConfig)
 	if err != nil {
 		logger.Error("Failed to connect to Redis", "error", err)
 		os.Exit(1)
 	}
-	defer redisClient.Close()
+	defer rdb.Close()
 
-	// Set JWT secret from config
+	// Create JWT service from config
 	jwtSecret := viper.GetString("jwt.secret")
 	if jwtSecret == "" {
 		logger.Error("JWT secret not configured")
 		os.Exit(1)
 	}
-	auth.SetSecret(jwtSecret)
+	issuer := auth.NewIssuer(jwtSecret)
 
 	// Initialize routes
-	mux := route.Initialize(db, redisClient, logger)
+	handler := route.Initialize(route.Config{
+		Db:     db,
+		Redis:  rdb,
+		Issuer: issuer,
+		Logger: logger,
+	})
 
 	// Create HTTP server
 	serverPort := viper.GetString("server.port")
 	server := &http.Server{
 		Addr:    fmt.Sprintf(":%s", serverPort),
-		Handler: mux,
+		Handler: handler,
 	}
 
 	// Start server

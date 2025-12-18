@@ -3,8 +3,11 @@ package user
 import (
 	"context"
 	"crypto/rand"
+	"crypto/subtle"
 	"encoding/base64"
+	"errors"
 	"fmt"
+	"strings"
 	"time"
 
 	"github.com/jmoiron/sqlx"
@@ -28,6 +31,9 @@ type CreateRequest struct {
 	Password string `json:"password"`
 }
 
+// ErrConflict indicates a unique constraint violation.
+var ErrConflict = errors.New("unique constraint violation")
+
 func Create(ctx context.Context, db *sqlx.DB, request CreateRequest) (int64, error) {
 	h, s, err := hash(request.Password, nil)
 	if err != nil {
@@ -43,20 +49,40 @@ func Create(ctx context.Context, db *sqlx.DB, request CreateRequest) (int64, err
 		s,
 	).Scan(&uid)
 	if err != nil {
+		if IsConflict(err) {
+			return 0, ErrConflict
+		}
 		return 0, fmt.Errorf("failed to create user: %w", err)
 	}
 	return uid, nil
 }
 
-func Verify(password string, storedHash string, salt []byte) bool {
-	computed, _, err := hash(password, salt)
-	if err != nil {
+// IsConflict checks if the error is a unique constraint violation (PostgreSQL).
+func IsConflict(err error) bool {
+	if err == nil {
 		return false
 	}
-	return computed == storedHash
+	// PostgreSQL unique violation error code is 23505
+	// The error message contains "duplicate key" or "unique constraint"
+	errStr := err.Error()
+	return strings.Contains(errStr, "23505") ||
+		strings.Contains(errStr, "duplicate key") ||
+		strings.Contains(errStr, "unique constraint") ||
+		errors.Is(err, ErrConflict)
 }
 
-// https://pkg.go.dev/golang.org/x/crypto/scrypt#pkg-overview
+func Verify(password string, storedHash string, salt []byte) (bool, error) {
+	computed, _, err := hash(password, salt)
+	if err != nil {
+		return false, fmt.Errorf("failed to compute hash: %w", err)
+	}
+	match := subtle.ConstantTimeCompare([]byte(computed), []byte(storedHash)) == 1
+	return match, nil
+}
+
+// hash uses scrypt with OWASP 2024 recommended parameters.
+// N=32768 (2^15), r=8, p=1, keyLen=32
+// See: https://cheatsheetseries.owasp.org/cheatsheets/Password_Storage_Cheat_Sheet.html
 func hash(password string, salt []byte) (string, []byte, error) {
 	if salt == nil {
 		salt = make([]byte, 32)
@@ -65,7 +91,7 @@ func hash(password string, salt []byte) (string, []byte, error) {
 		}
 	}
 
-	hash, err := scrypt.Key([]byte(password), salt, 16384, 8, 1, 32)
+	hash, err := scrypt.Key([]byte(password), salt, 32768, 8, 1, 32)
 	if err != nil {
 		return "", nil, fmt.Errorf("failed to create key: %w", err)
 	}

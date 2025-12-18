@@ -13,61 +13,58 @@ import (
 
 func ListUsers(db *sqlx.DB, logger *slog.Logger) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		users, err := user.List(r.Context(), db)
+		ctx := r.Context()
+		users, err := user.List(ctx, db)
 		if err != nil {
 			logger.Error("failed to list users", "error", err)
-			http.Error(w, "Failed to retrieve users", http.StatusInternalServerError)
+			writeError(w, http.StatusInternalServerError, "Failed to list users")
 			return
 		}
 
-		w.Header().Set("Content-Type", "application/json")
-		json.NewEncoder(w).Encode(users)
+		writeJSON(w, http.StatusOK, users)
 	}
 }
 
 func UpdateUser(db *sqlx.DB, logger *slog.Logger) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		// Extract user ID from path parameter
-		userIDStr := r.PathValue("id")
-		if userIDStr == "" {
-			http.Error(w, "User ID is required", http.StatusBadRequest)
+		ctx := r.Context()
+		id := r.PathValue("id")
+		if id == "" {
+			writeError(w, http.StatusBadRequest, "User ID is required")
 			return
 		}
 
-		userID, err := strconv.ParseInt(userIDStr, 10, 64)
+		userID, err := strconv.ParseInt(id, 10, 64)
 		if err != nil {
-			http.Error(w, "Invalid user ID", http.StatusBadRequest)
+			writeError(w, http.StatusBadRequest, "Invalid user ID")
 			return
 		}
 
 		var req user.UpdateRequest
 		if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 			logger.Error("failed to decode update request", "error", err)
-			http.Error(w, "Invalid request body", http.StatusBadRequest)
+			writeError(w, http.StatusBadRequest, "Invalid request payload")
 			return
 		}
 
-		if err := user.Update(r.Context(), db, userID, req); err != nil {
+		if err := user.Update(ctx, db, userID, req); err != nil {
 			logger.Error("failed to update user", "error", err, "user_id", userID)
 			if err.Error() == "user not found" {
-				http.Error(w, "User not found", http.StatusNotFound)
+				writeError(w, http.StatusNotFound, "User not found")
 				return
 			}
-			http.Error(w, "Failed to update user", http.StatusInternalServerError)
+			writeError(w, http.StatusInternalServerError, "Failed to update user")
 			return
 		}
 
-		// Fetch and return the updated user
-		updatedUser, err := user.ByID(r.Context(), db, userID)
+		updatedUser, err := user.ByID(ctx, db, userID)
 		if err != nil {
 			logger.Error("failed to fetch updated user", "error", err)
-			http.Error(w, "User updated but failed to fetch", http.StatusInternalServerError)
+			writeError(w, http.StatusInternalServerError, "User updated but failed to fetch")
 			return
 		}
 
 		logger.Info("user updated", "user_id", userID)
-
-		w.Header().Set("Content-Type", "application/json")
-		json.NewEncoder(w).Encode(updatedUser)
+		writeJSON(w, http.StatusOK, updatedUser)
 	}
 }

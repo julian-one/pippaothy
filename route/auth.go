@@ -7,10 +7,13 @@ import (
 	"time"
 
 	"pippaothy/internal/auth"
-	"pippaothy/internal/redis"
+	"pippaothy/internal/middleware"
+	rdb "pippaothy/internal/redis"
 	"pippaothy/internal/user"
 
+	"github.com/google/uuid"
 	"github.com/jmoiron/sqlx"
+	"github.com/redis/go-redis/v9"
 )
 
 type AuthResponse struct {
@@ -21,27 +24,42 @@ type AuthResponse struct {
 	User         *user.User `json:"user"`
 }
 
-func Register(db *sqlx.DB, redisClient *redis.Client, logger *slog.Logger) http.HandlerFunc {
-	type Request struct {
-		Username string `json:"username"`
-		Email    string `json:"email"`
-		Password string `json:"password"`
-	}
+type registerRequest struct {
+	Username string `json:"username"`
+	Email    string `json:"email"`
+	Password string `json:"password"`
+}
+
+type loginRequest struct {
+	Email    string `json:"email"`
+	Password string `json:"password"`
+}
+
+type refreshRequest struct {
+	RefreshToken string `json:"refresh_token"`
+}
+
+// maxBodySize limits request body to 1MB to prevent DoS.
+const maxBodySize = 1 << 20
+
+func Register(
+	db *sqlx.DB,
+	redisClient *redis.Client,
+	issuer *auth.Issuer,
+	logger *slog.Logger,
+) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		var req Request
+		r.Body = http.MaxBytesReader(w, r.Body, maxBodySize)
+
+		var req registerRequest
 		if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 			logger.Error("failed to decode register request", "error", err)
-			http.Error(w, "Invalid request body", http.StatusBadRequest)
+			writeError(w, http.StatusBadRequest, "Invalid request body")
 			return
 		}
 
 		if req.Username == "" || req.Email == "" || req.Password == "" {
-			http.Error(w, "Username, email, and password are required", http.StatusBadRequest)
-			return
-		}
-
-		if user.Exists(r.Context(), db, req.Email) {
-			http.Error(w, "User with this email already exists", http.StatusConflict)
+			writeError(w, http.StatusBadRequest, "Username, email, and password are required")
 			return
 		}
 
@@ -51,174 +69,174 @@ func Register(db *sqlx.DB, redisClient *redis.Client, logger *slog.Logger) http.
 			Password: req.Password,
 		})
 		if err != nil {
+			// Check for unique constraint violation without revealing which field
+			if user.IsConflict(err) {
+				writeError(w, http.StatusConflict, "Unable to create account")
+				return
+			}
 			logger.Error("failed to create user", "error", err)
-			http.Error(w, "Failed to create user", http.StatusInternalServerError)
+			writeError(w, http.StatusInternalServerError, "Failed to create user")
 			return
 		}
 
-		// Generate access token (5 minutes)
-		accessToken, _, err := auth.GenerateAccessToken(userID, req.Email, req.Username)
+		accessToken, err := issuer.GenerateAccessToken(userID, req.Email, req.Username)
 		if err != nil {
 			logger.Error("failed to generate access token", "error", err)
-			http.Error(w, "Failed to generate token", http.StatusInternalServerError)
+			writeError(w, http.StatusInternalServerError, "Failed to generate token")
 			return
 		}
 
-		// Generate and store refresh token in Redis (24 hours)
-		refreshToken := auth.GenerateRefreshToken()
+		refreshToken := uuid.New().String()
 		ttl := 24 * time.Hour
-		if err := redisClient.StoreRefreshToken(r.Context(), refreshToken, userID, ttl); err != nil {
+		if err := rdb.StoreRefresh(r.Context(), redisClient, refreshToken, userID, ttl); err != nil {
 			logger.Error("failed to store refresh token", "error", err)
-			http.Error(w, "Failed to store refresh token", http.StatusInternalServerError)
+			writeError(w, http.StatusInternalServerError, "Failed to store refresh token")
 			return
 		}
 
 		createdUser, err := user.ByEmail(r.Context(), db, req.Email)
 		if err != nil {
 			logger.Error("failed to fetch created user", "error", err)
-			http.Error(w, "Failed to fetch user", http.StatusInternalServerError)
+			writeError(w, http.StatusInternalServerError, "Failed to fetch user")
 			return
 		}
 
-		w.Header().Set("Content-Type", "application/json")
-		w.WriteHeader(http.StatusCreated)
-		json.NewEncoder(w).Encode(AuthResponse{
+		writeJSON(w, http.StatusCreated, AuthResponse{
 			AccessToken:  accessToken,
 			RefreshToken: refreshToken,
 			TokenType:    "Bearer",
-			ExpiresIn:    300, // 5 minutes in seconds
+			ExpiresIn:    300,
 			User:         createdUser,
 		})
 	}
 }
 
-func Login(db *sqlx.DB, redisClient *redis.Client, logger *slog.Logger) http.HandlerFunc {
-	type Request struct {
-		Email    string `json:"email"`
-		Password string `json:"password"`
-	}
+func Login(
+	db *sqlx.DB,
+	redisClient *redis.Client,
+	issuer *auth.Issuer,
+	logger *slog.Logger,
+) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		var req Request
+		r.Body = http.MaxBytesReader(w, r.Body, maxBodySize)
+
+		var req loginRequest
 		if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 			logger.Error("failed to decode login request", "error", err)
-			http.Error(w, "Invalid request body", http.StatusBadRequest)
+			writeError(w, http.StatusBadRequest, "Invalid request body")
 			return
 		}
 
 		if req.Email == "" || req.Password == "" {
-			http.Error(w, "Email and password are required", http.StatusBadRequest)
+			writeError(w, http.StatusBadRequest, "Email and password are required")
 			return
 		}
 
 		u, err := user.ByEmail(r.Context(), db, req.Email)
 		if err != nil {
 			logger.Warn("login attempt for non-existent user", "email", req.Email)
-			http.Error(w, "Invalid email or password", http.StatusUnauthorized)
+			writeError(w, http.StatusUnauthorized, "Invalid email or password")
 			return
 		}
 
-		if !user.Verify(req.Password, u.Hash, u.Salt) {
+		match, err := user.Verify(req.Password, u.Hash, u.Salt)
+		if err != nil {
+			logger.Error("failed to verify password", "error", err)
+			writeError(w, http.StatusInternalServerError, "Authentication error")
+			return
+		}
+		if !match {
 			logger.Warn("failed login attempt", "email", req.Email)
-			http.Error(w, "Invalid email or password", http.StatusUnauthorized)
+			writeError(w, http.StatusUnauthorized, "Invalid email or password")
 			return
 		}
 
-		// Generate access token (5 minutes)
-		accessToken, _, err := auth.GenerateAccessToken(u.UserId, u.Email, u.Username)
+		accessToken, err := issuer.GenerateAccessToken(u.UserId, u.Email, u.Username)
 		if err != nil {
 			logger.Error("failed to generate access token", "error", err)
-			http.Error(w, "Failed to generate token", http.StatusInternalServerError)
+			writeError(w, http.StatusInternalServerError, "Failed to generate token")
 			return
 		}
 
-		// Generate and store refresh token in Redis (24 hours)
-		refreshToken := auth.GenerateRefreshToken()
+		refreshToken := uuid.New().String()
 		ttl := 24 * time.Hour
-		if err := redisClient.StoreRefreshToken(r.Context(), refreshToken, u.UserId, ttl); err != nil {
+		if err := rdb.StoreRefresh(r.Context(), redisClient, refreshToken, u.UserId, ttl); err != nil {
 			logger.Error("failed to store refresh token", "error", err)
-			http.Error(w, "Failed to store refresh token", http.StatusInternalServerError)
+			writeError(w, http.StatusInternalServerError, "Failed to store refresh token")
 			return
 		}
 
-		w.Header().Set("Content-Type", "application/json")
-		w.WriteHeader(http.StatusOK)
-		json.NewEncoder(w).Encode(AuthResponse{
+		writeJSON(w, http.StatusOK, AuthResponse{
 			AccessToken:  accessToken,
 			RefreshToken: refreshToken,
 			TokenType:    "Bearer",
-			ExpiresIn:    300, // 5 minutes in seconds
+			ExpiresIn:    300,
 			User:         u,
 		})
 	}
 }
 
-func RefreshTokenHandler(
+func RefreshToken(
 	db *sqlx.DB,
 	redisClient *redis.Client,
+	issuer *auth.Issuer,
 	logger *slog.Logger,
 ) http.HandlerFunc {
-	type Request struct {
-		RefreshToken string `json:"refresh_token"`
-	}
 	return func(w http.ResponseWriter, r *http.Request) {
-		var req Request
+		r.Body = http.MaxBytesReader(w, r.Body, maxBodySize)
+
+		var req refreshRequest
 		if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 			logger.Error("failed to decode refresh request", "error", err)
-			http.Error(w, "Invalid request body", http.StatusBadRequest)
+			writeError(w, http.StatusBadRequest, "Invalid request body")
 			return
 		}
 
 		if req.RefreshToken == "" {
-			http.Error(w, "Refresh token is required", http.StatusBadRequest)
+			writeError(w, http.StatusBadRequest, "Refresh token is required")
 			return
 		}
 
-		// Validate refresh token from Redis
-		userID, err := redisClient.GetRefreshToken(r.Context(), req.RefreshToken)
+		userID, err := rdb.GetRefresh(r.Context(), redisClient, req.RefreshToken)
 		if err != nil {
 			logger.Warn("invalid refresh token attempt", "error", err)
-			http.Error(w, "Invalid or expired refresh token", http.StatusUnauthorized)
+			writeError(w, http.StatusUnauthorized, "Invalid or expired refresh token")
 			return
 		}
 
-		// Get user info
 		u, err := user.ByID(r.Context(), db, userID)
 		if err != nil {
 			logger.Error("failed to fetch user", "error", err)
-			http.Error(w, "User not found", http.StatusUnauthorized)
+			writeError(w, http.StatusUnauthorized, "User not found")
 			return
 		}
 
-		// Generate new access token
-		accessToken, _, err := auth.GenerateAccessToken(u.UserId, u.Email, u.Username)
+		accessToken, err := issuer.GenerateAccessToken(u.UserId, u.Email, u.Username)
 		if err != nil {
 			logger.Error("failed to generate access token", "error", err)
-			http.Error(w, "Failed to generate token", http.StatusInternalServerError)
+			writeError(w, http.StatusInternalServerError, "Failed to generate token")
 			return
 		}
 
-		// Rotate refresh token (more secure - old token becomes invalid)
-		newRefreshToken := auth.GenerateRefreshToken()
+		newRefreshToken := uuid.New().String()
 		ttl := 24 * time.Hour
 
-		// Delete old refresh token and store new one
-		if err := redisClient.DeleteRefreshToken(r.Context(), req.RefreshToken, u.UserId); err != nil {
+		if err := rdb.DeleteRefresh(r.Context(), redisClient, req.RefreshToken, u.UserId); err != nil {
 			logger.Error("failed to delete old refresh token", "error", err)
 		}
-		if err := redisClient.StoreRefreshToken(r.Context(), newRefreshToken, u.UserId, ttl); err != nil {
+		if err := rdb.StoreRefresh(r.Context(), redisClient, newRefreshToken, u.UserId, ttl); err != nil {
 			logger.Error("failed to store new refresh token", "error", err)
-			http.Error(w, "Failed to rotate refresh token", http.StatusInternalServerError)
+			writeError(w, http.StatusInternalServerError, "Failed to rotate refresh token")
 			return
 		}
 
 		logger.Info("token refreshed", "user_id", u.UserId)
 
-		w.Header().Set("Content-Type", "application/json")
-		json.NewEncoder(w).Encode(AuthResponse{
+		writeJSON(w, http.StatusOK, AuthResponse{
 			AccessToken:  accessToken,
 			RefreshToken: newRefreshToken,
 			TokenType:    "Bearer",
-			ExpiresIn:    300, // 5 minutes
+			ExpiresIn:    300,
 			User:         u,
 		})
 	}
@@ -227,34 +245,25 @@ func RefreshTokenHandler(
 func Logout(redisClient *redis.Client, logger *slog.Logger) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		ctx := r.Context()
-		claims, ok := ctx.Value(auth.ClaimsKey).(*auth.Claims)
+		claims, ok := ctx.Value(middleware.ClaimsKey).(*auth.Claims)
 		if !ok {
-			http.Error(w, "Unauthorized", http.StatusUnauthorized)
+			writeError(w, http.StatusUnauthorized, "Unauthorized")
 			return
 		}
 
-		// Blacklist the access token in Redis
-		// TTL = time until token expires
 		ttl := time.Until(claims.ExpiresAt.Time)
 		if ttl > 0 {
-			if err := redisClient.BlacklistToken(ctx, claims.ID, ttl); err != nil {
+			if err := rdb.Blacklist(ctx, redisClient, claims.ID, ttl); err != nil {
 				logger.Error("failed to blacklist token", "error", err, "jti", claims.ID)
-				// Don't fail the logout if Redis fails
 			}
 		}
 
-		// Delete all refresh tokens for this user from Redis
-		if err := redisClient.DeleteUserRefreshTokens(ctx, claims.UserID); err != nil {
+		if err := rdb.DeleteUserRefresh(ctx, redisClient, claims.UserID); err != nil {
 			logger.Error("failed to delete refresh tokens", "error", err)
-			// Don't fail the logout if Redis delete fails
 		}
 
 		logger.Info("user logged out", "user_id", claims.UserID, "email", claims.Email)
 
-		w.Header().Set("Content-Type", "application/json")
-		w.WriteHeader(http.StatusOK)
-		json.NewEncoder(w).Encode(map[string]string{
-			"message": "Successfully logged out",
-		})
+		w.WriteHeader(http.StatusNoContent)
 	}
 }

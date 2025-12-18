@@ -2,14 +2,17 @@ package auth
 
 import (
 	"fmt"
+	"strconv"
 	"time"
 
 	"github.com/golang-jwt/jwt/v5"
 	"github.com/google/uuid"
 )
 
-// TODO: Change this
-var jwtSecret = []byte("")
+const (
+	issuer   = "pippaothy"
+	audience = "pippaothy-api"
+)
 
 type Claims struct {
 	UserID   int64  `json:"user_id"`
@@ -18,56 +21,47 @@ type Claims struct {
 	jwt.RegisteredClaims
 }
 
-// TokenPair represents an access and refresh token pair
-type TokenPair struct {
-	AccessToken  string `json:"access_token"`
-	RefreshToken string `json:"refresh_token"`
-	ExpiresIn    int64  `json:"expires_in"` // seconds until access token expires
+type Issuer struct {
+	secret []byte
 }
 
-// GenerateAccessToken creates a short-lived access token (5 minutes)
-func GenerateAccessToken(userID int64, email string, username string) (string, string, error) {
-	jti := uuid.New().String()
-	expiresAt := time.Now().Add(5 * time.Minute)
+func NewIssuer(secret string) *Issuer {
+	return &Issuer{secret: []byte(secret)}
+}
 
+func (s *Issuer) GenerateAccessToken(userID int64, email, username string) (string, error) {
+	now := time.Now()
 	claims := Claims{
 		UserID:   userID,
 		Email:    email,
 		Username: username,
 		RegisteredClaims: jwt.RegisteredClaims{
-			ID:        jti,
-			ExpiresAt: jwt.NewNumericDate(expiresAt),
-			IssuedAt:  jwt.NewNumericDate(time.Now()),
-			NotBefore: jwt.NewNumericDate(time.Now()),
+			ID:        uuid.New().String(),
+			Subject:   strconv.FormatInt(userID, 10),
+			Issuer:    issuer,
+			Audience:  jwt.ClaimStrings{audience},
+			ExpiresAt: jwt.NewNumericDate(now.Add(5 * time.Minute)),
+			IssuedAt:  jwt.NewNumericDate(now),
+			NotBefore: jwt.NewNumericDate(now),
 		},
 	}
 
 	token := jwt.NewWithClaims(jwt.SigningMethodHS256, claims)
-	tokenString, err := token.SignedString(jwtSecret)
-	return tokenString, jti, err
+	return token.SignedString(s.secret)
 }
 
-// GenerateRefreshToken creates a refresh token (random UUID)
-func GenerateRefreshToken() string {
-	return uuid.New().String()
-}
-
-// Legacy function for backward compatibility
-func GenerateJWT(userID int64, email string, username string) (string, error) {
-	token, _, err := GenerateAccessToken(userID, email, username)
-	return token, err
-}
-
-func ValidateJWT(tokenString string) (*Claims, error) {
+func (s *Issuer) Validate(tokenString string) (*Claims, error) {
 	token, err := jwt.ParseWithClaims(
 		tokenString,
 		&Claims{},
-		func(token *jwt.Token) (interface{}, error) {
+		func(token *jwt.Token) (any, error) {
 			if _, ok := token.Method.(*jwt.SigningMethodHMAC); !ok {
 				return nil, fmt.Errorf("unexpected signing method: %v", token.Header["alg"])
 			}
-			return jwtSecret, nil
+			return s.secret, nil
 		},
+		jwt.WithIssuer(issuer),
+		jwt.WithAudience(audience),
 	)
 	if err != nil {
 		return nil, err
@@ -78,8 +72,4 @@ func ValidateJWT(tokenString string) (*Claims, error) {
 	}
 
 	return nil, fmt.Errorf("invalid token")
-}
-
-func SetSecret(secret string) {
-	jwtSecret = []byte(secret)
 }
