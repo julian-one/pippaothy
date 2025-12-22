@@ -8,6 +8,7 @@ import (
 
 	"pippaothy/internal/auth"
 	"pippaothy/internal/database"
+	"pippaothy/internal/logstream"
 	"pippaothy/internal/redis"
 	"pippaothy/route"
 
@@ -23,7 +24,6 @@ var serveCmd = &cobra.Command{
 }
 
 func runServe(cmd *cobra.Command, args []string) {
-	logger := slog.Default()
 	ctx := cmd.Context()
 
 	// Load configuration
@@ -38,12 +38,18 @@ func runServe(cmd *cobra.Command, args []string) {
 	viper.SetDefault("redis.host", "localhost")
 	viper.SetDefault("redis.port", "6379")
 	viper.SetDefault("redis.db", 0)
+	viper.SetDefault("logging.file", "/var/log/pippaothy/server.log")
 
 	// Read config file
 	if err := viper.ReadInConfig(); err != nil {
-		logger.Error("Failed to read config file", "error", err)
+		slog.Error("Failed to read config file", "error", err)
 		os.Exit(1)
 	}
+
+	// Initialize logging with file output
+	logFilePath := viper.GetString("logging.file")
+	fileLogger := logstream.NewFileLogger(slog.Default().Handler(), logFilePath)
+	logger := slog.New(fileLogger)
 
 	// Initialize database
 	dbConfig := database.Config{
@@ -86,10 +92,11 @@ func runServe(cmd *cobra.Command, args []string) {
 
 	// Initialize routes
 	handler := route.Initialize(route.Config{
-		Db:     db,
-		Redis:  rdb,
-		Issuer: issuer,
-		Logger: logger,
+		Db:         db,
+		Redis:      rdb,
+		Issuer:     issuer,
+		Logger:     logger,
+		FileLogger: fileLogger,
 	})
 
 	// Create HTTP server
