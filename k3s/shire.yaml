@@ -1,0 +1,41 @@
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: shire
+  labels:
+    app: shire
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: shire
+  template:
+    metadata:
+      labels:
+        app: shire
+    spec:
+      containers:
+        - name: shire
+          image: julianone/shire:latest
+          ports:
+            - containerPort: 3000
+          imagePullPolicy: Always
+          env:
+            - name: NODE_ENV
+              value: "production"
+            - name: API_URL
+              value: "https://api.pippaothy.com"
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: shire
+spec:
+  selector:
+    app: shire
+  type: ClusterIP
+  ports:
+    - protocol: TCP
+      port: 80
+      targetPort: 3000

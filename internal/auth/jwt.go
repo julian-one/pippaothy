@@ -10,14 +10,14 @@ import (
 )
 
 const (
-	issuer   = "pippaothy"
-	audience = "pippaothy-api"
+	issuer   = "citadel"
+	audience = "citadel-api"
 )
 
 type Claims struct {
-	UserID   int64  `json:"user_id"`
-	Email    string `json:"email"`
+	UserId   int64  `json:"user_id"`
 	Username string `json:"username"`
+	Email    string `json:"email"`
 	jwt.RegisteredClaims
 }
 
@@ -29,15 +29,15 @@ func NewIssuer(secret string) *Issuer {
 	return &Issuer{secret: []byte(secret)}
 }
 
-func (s *Issuer) GenerateAccessToken(userID int64, email, username string) (string, error) {
+func (s *Issuer) GenerateAccessToken(id int64, email, username string) (string, error) {
 	now := time.Now()
 	claims := Claims{
-		UserID:   userID,
-		Email:    email,
+		UserId:   id,
 		Username: username,
+		Email:    email,
 		RegisteredClaims: jwt.RegisteredClaims{
 			ID:        uuid.New().String(),
-			Subject:   strconv.FormatInt(userID, 10),
+			Subject:   strconv.FormatInt(id, 10),
 			Issuer:    issuer,
 			Audience:  jwt.ClaimStrings{audience},
 			ExpiresAt: jwt.NewNumericDate(now.Add(5 * time.Minute)),
@@ -55,11 +55,9 @@ func (s *Issuer) Validate(tokenString string) (*Claims, error) {
 		tokenString,
 		&Claims{},
 		func(token *jwt.Token) (any, error) {
-			if _, ok := token.Method.(*jwt.SigningMethodHMAC); !ok {
-				return nil, fmt.Errorf("unexpected signing method: %v", token.Header["alg"])
-			}
 			return s.secret, nil
 		},
+		jwt.WithValidMethods([]string{jwt.SigningMethodHS256.Alg()}),
 		jwt.WithIssuer(issuer),
 		jwt.WithAudience(audience),
 	)

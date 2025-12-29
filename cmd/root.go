@@ -7,9 +7,9 @@ import (
 )
 
 var root = &cobra.Command{
-	Use:   "pippaothy",
-	Short: "Pippaothy - A personal web application",
-	Long: `Pippaothy is a personal web application built with Go.
+	Use:   "citadel",
+	Short: "Citadel - A personal web application",
+	Long: `Citadel is a personal web application built with Go.
 It provides both a web server and other utilities for managing the application`,
 }
 
@@ -23,4 +23,3 @@ func Execute() {
 func init() {
 	root.AddCommand(serveCmd)
 }
-

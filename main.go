@@ -1,6 +1,6 @@
 package main
 
-import "pippaothy/cmd"
+import "citadel/cmd"
 
 func main() {
 	cmd.Execute()

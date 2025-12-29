@@ -7,10 +7,10 @@ import (
 	"encoding/base64"
 	"errors"
 	"fmt"
-	"strings"
 	"time"
 
 	"github.com/jmoiron/sqlx"
+	"github.com/mattn/go-sqlite3"
 	"golang.org/x/crypto/scrypt"
 )
 
@@ -31,44 +31,27 @@ type CreateRequest struct {
 	Password string `json:"password"`
 }
 
-// ErrConflict indicates a unique constraint violation.
-var ErrConflict = errors.New("unique constraint violation")
-
 func Create(ctx context.Context, db *sqlx.DB, request CreateRequest) (int64, error) {
 	h, s, err := hash(request.Password, nil)
 	if err != nil {
 		return 0, fmt.Errorf("failed to hash password: %w", err)
 	}
-	var uid int64
-	err = db.QueryRowContext(
+	result, err := db.ExecContext(
 		ctx,
-		`INSERT INTO users (username, email, password_hash, salt) VALUES ($1, $2, $3, $4) RETURNING user_id`,
+		`INSERT INTO users (username, email, password_hash, salt) VALUES (?, ?, ?, ?)`,
 		request.Username,
 		request.Email,
 		h,
 		s,
-	).Scan(&uid)
+	)
 	if err != nil {
-		if IsConflict(err) {
-			return 0, ErrConflict
-		}
 		return 0, fmt.Errorf("failed to create user: %w", err)
 	}
-	return uid, nil
-}
-
-// IsConflict checks if the error is a unique constraint violation (PostgreSQL).
-func IsConflict(err error) bool {
-	if err == nil {
-		return false
+	uid, err := result.LastInsertId()
+	if err != nil {
+		return 0, fmt.Errorf("failed to get last insert id: %w", err)
 	}
-	// PostgreSQL unique violation error code is 23505
-	// The error message contains "duplicate key" or "unique constraint"
-	errStr := err.Error()
-	return strings.Contains(errStr, "23505") ||
-		strings.Contains(errStr, "duplicate key") ||
-		strings.Contains(errStr, "unique constraint") ||
-		errors.Is(err, ErrConflict)
+	return uid, nil
 }
 
 func Verify(password string, storedHash string, salt []byte) (bool, error) {
@@ -96,4 +79,13 @@ func hash(password string, salt []byte) (string, []byte, error) {
 		return "", nil, fmt.Errorf("failed to create key: %w", err)
 	}
 	return base64.StdEncoding.EncodeToString(hash), salt, nil
+}
+
+// IsConflict returns true if the error is a SQLite unique constraint violation.
+func IsConflict(err error) bool {
+	var sqliteErr sqlite3.Error
+	if errors.As(err, &sqliteErr) {
+		return sqliteErr.ExtendedCode == sqlite3.ErrConstraintUnique
+	}
+	return false
 }

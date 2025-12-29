@@ -17,18 +17,15 @@ type UpdateRequest struct {
 func Update(ctx context.Context, db *sqlx.DB, userID int64, request UpdateRequest) error {
 	updates := []string{}
 	args := []interface{}{}
-	argPosition := 1
 
 	if request.Username != nil {
-		updates = append(updates, fmt.Sprintf("username = $%d", argPosition))
+		updates = append(updates, "username = ?")
 		args = append(args, *request.Username)
-		argPosition++
 	}
 
 	if request.Email != nil {
-		updates = append(updates, fmt.Sprintf("email = $%d", argPosition))
+		updates = append(updates, "email = ?")
 		args = append(args, *request.Email)
-		argPosition++
 	}
 
 	if request.Password != nil {
@@ -36,12 +33,10 @@ func Update(ctx context.Context, db *sqlx.DB, userID int64, request UpdateReques
 		if err != nil {
 			return fmt.Errorf("failed to hash password: %w", err)
 		}
-		updates = append(updates, fmt.Sprintf("password_hash = $%d", argPosition))
+		updates = append(updates, "password_hash = ?")
 		args = append(args, h)
-		argPosition++
-		updates = append(updates, fmt.Sprintf("salt = $%d", argPosition))
+		updates = append(updates, "salt = ?")
 		args = append(args, s)
-		argPosition++
 	}
 
 	if len(updates) == 0 {
@@ -55,9 +50,8 @@ func Update(ctx context.Context, db *sqlx.DB, userID int64, request UpdateReques
 	args = append(args, userID)
 
 	query := fmt.Sprintf(
-		"UPDATE users SET %s WHERE user_id = $%d",
+		"UPDATE users SET %s WHERE user_id = ?",
 		strings.Join(updates, ", "),
-		argPosition,
 	)
 
 	result, err := db.ExecContext(ctx, query, args...)

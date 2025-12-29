@@ -8,8 +8,8 @@ import (
 	"strings"
 	"time"
 
-	"pippaothy/internal/auth"
-	rdb "pippaothy/internal/redis"
+	"citadel/internal/auth"
+	"citadel/internal/cache"
 
 	"github.com/google/uuid"
 	"github.com/redis/go-redis/v9"
@@ -19,7 +19,7 @@ type contextKey string
 
 const (
 	ClaimsKey    contextKey = "claims"
-	RequestIDKey contextKey = "requestID"
+	RequestIdKey contextKey = "requestId"
 	LoggerKey    contextKey = "logger"
 )
 
@@ -53,7 +53,7 @@ func RequestLogger(logger *slog.Logger) Middleware {
 			reqLogger := logger.With("request_id", requestID)
 
 			// Store request ID and logger in context
-			ctx := context.WithValue(r.Context(), RequestIDKey, requestID)
+			ctx := context.WithValue(r.Context(), RequestIdKey, requestID)
 			ctx = context.WithValue(ctx, LoggerKey, reqLogger)
 			r = r.WithContext(ctx)
 
@@ -101,7 +101,7 @@ func getClientIP(r *http.Request) string {
 
 // GetRequestID extracts the request ID from the context.
 func GetRequestID(r *http.Request) string {
-	if id, ok := r.Context().Value(RequestIDKey).(string); ok {
+	if id, ok := r.Context().Value(RequestIdKey).(string); ok {
 		return id
 	}
 	return ""
@@ -115,16 +115,6 @@ func GetLogger(r *http.Request) *slog.Logger {
 		return logger
 	}
 	return slog.Default()
-}
-
-type errorResponse struct {
-	Error string `json:"error"`
-}
-
-func writeError(w http.ResponseWriter, status int, message string) {
-	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(status)
-	json.NewEncoder(w).Encode(errorResponse{Error: message})
 }
 
 // RequireAuth returns authentication middleware that validates JWT tokens.
@@ -150,23 +140,31 @@ func RequireAuth(issuer *auth.Issuer, client *redis.Client) Middleware {
 			}
 
 			if token == "" {
-				writeError(w, http.StatusUnauthorized, "Missing authentication token")
+				w.Header().Set("Content-Type", "application/json")
+				w.WriteHeader(http.StatusUnauthorized)
+				json.NewEncoder(w).Encode(map[string]string{"error": "Missing authentication token"})
 				return
 			}
 
 			claims, err := issuer.Validate(token)
 			if err != nil {
-				writeError(w, http.StatusUnauthorized, "Invalid or expired token")
+				w.Header().Set("Content-Type", "application/json")
+				w.WriteHeader(http.StatusUnauthorized)
+				json.NewEncoder(w).Encode(map[string]string{"error": "Invalid or expired token"})
 				return
 			}
 
-			isBlacklisted, err := rdb.IsBlacklisted(ctx, client, claims.ID)
+			isBlacklisted, err := cache.IsBlacklisted(ctx, client, claims.ID)
 			if err != nil {
-				writeError(w, http.StatusServiceUnavailable, "Authentication service unavailable")
+				w.Header().Set("Content-Type", "application/json")
+				w.WriteHeader(http.StatusServiceUnavailable)
+				json.NewEncoder(w).Encode(map[string]string{"error": "Authentication service unavailable"})
 				return
 			}
 			if isBlacklisted {
-				writeError(w, http.StatusUnauthorized, "Token has been revoked")
+				w.Header().Set("Content-Type", "application/json")
+				w.WriteHeader(http.StatusUnauthorized)
+				json.NewEncoder(w).Encode(map[string]string{"error": "Token has been revoked"})
 				return
 			}
 

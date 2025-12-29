@@ -15,9 +15,21 @@ spec:
             pathType: Prefix
             backend:
               service:
-                name: pippaothy
+                name: shire
+                port:
+                  number: 80
+    - host: api.pippaothy.com
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: citadel
                 port:
                   number: 80
   tls:
-    - hosts: [pippaothy.com]
+    - hosts:
+        - pippaothy.com
+        - api.pippaothy.com
       secretName: pippaothy-tls

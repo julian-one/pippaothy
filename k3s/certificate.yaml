@@ -12,4 +12,6 @@ spec:
     name: letsencrypt-prod
     kind: ClusterIssuer
   commonName: pippaothy.com
-  dnsNames: [pippaothy.com]
+  dnsNames:
+    - pippaothy.com
+    - api.pippaothy.com

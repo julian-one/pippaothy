@@ -5,8 +5,8 @@ import (
 	"net/http"
 	"strconv"
 
-	"pippaothy/internal/middleware"
-	"pippaothy/internal/user"
+	"citadel/internal/middleware"
+	"citadel/internal/user"
 
 	"github.com/jmoiron/sqlx"
 )
@@ -21,12 +21,16 @@ func ListUsers(db *sqlx.DB) http.HandlerFunc {
 		users, err := user.List(ctx, db)
 		if err != nil {
 			log.Error("failed to list users", "error", err)
-			writeError(w, http.StatusInternalServerError, "Failed to list users")
+			w.Header().Set("Content-Type", "application/json")
+			w.WriteHeader(http.StatusInternalServerError)
+			json.NewEncoder(w).Encode(map[string]string{"error": "Failed to list users"})
 			return
 		}
 
 		log.Info("list users handler completed successfully", "count", len(users))
-		writeJSON(w, http.StatusOK, users)
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusOK)
+		json.NewEncoder(w).Encode(users)
 	}
 }
 
@@ -39,14 +43,18 @@ func UpdateUser(db *sqlx.DB) http.HandlerFunc {
 		id := r.PathValue("id")
 		if id == "" {
 			log.Warn("update user validation failed: missing user ID")
-			writeError(w, http.StatusBadRequest, "User ID is required")
+			w.Header().Set("Content-Type", "application/json")
+			w.WriteHeader(http.StatusBadRequest)
+			json.NewEncoder(w).Encode(map[string]string{"error": "User ID is required"})
 			return
 		}
 
 		userID, err := strconv.ParseInt(id, 10, 64)
 		if err != nil {
 			log.Warn("update user validation failed: invalid user ID", "id", id)
-			writeError(w, http.StatusBadRequest, "Invalid user ID")
+			w.Header().Set("Content-Type", "application/json")
+			w.WriteHeader(http.StatusBadRequest)
+			json.NewEncoder(w).Encode(map[string]string{"error": "Invalid user ID"})
 			return
 		}
 		log.Info("parsed user ID", "user_id", userID)
@@ -54,7 +62,9 @@ func UpdateUser(db *sqlx.DB) http.HandlerFunc {
 		var req user.UpdateRequest
 		if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 			log.Error("failed to decode update request", "error", err)
-			writeError(w, http.StatusBadRequest, "Invalid request payload")
+			w.Header().Set("Content-Type", "application/json")
+			w.WriteHeader(http.StatusBadRequest)
+			json.NewEncoder(w).Encode(map[string]string{"error": "Invalid request payload"})
 			return
 		}
 
@@ -62,10 +72,14 @@ func UpdateUser(db *sqlx.DB) http.HandlerFunc {
 		if err := user.Update(ctx, db, userID, req); err != nil {
 			log.Error("failed to update user", "error", err, "user_id", userID)
 			if err.Error() == "user not found" {
-				writeError(w, http.StatusNotFound, "User not found")
+				w.Header().Set("Content-Type", "application/json")
+				w.WriteHeader(http.StatusNotFound)
+				json.NewEncoder(w).Encode(map[string]string{"error": "User not found"})
 				return
 			}
-			writeError(w, http.StatusInternalServerError, "Failed to update user")
+			w.Header().Set("Content-Type", "application/json")
+			w.WriteHeader(http.StatusInternalServerError)
+			json.NewEncoder(w).Encode(map[string]string{"error": "Failed to update user"})
 			return
 		}
 
@@ -73,11 +87,16 @@ func UpdateUser(db *sqlx.DB) http.HandlerFunc {
 		updatedUser, err := user.ByID(ctx, db, userID)
 		if err != nil {
 			log.Error("failed to fetch updated user", "error", err)
-			writeError(w, http.StatusInternalServerError, "User updated but failed to fetch")
+			w.Header().Set("Content-Type", "application/json")
+			w.WriteHeader(http.StatusInternalServerError)
+			json.NewEncoder(w).
+				Encode(map[string]string{"error": "User updated but failed to fetch"})
 			return
 		}
 
 		log.Info("update user handler completed successfully", "user_id", userID)
-		writeJSON(w, http.StatusOK, updatedUser)
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusOK)
+		json.NewEncoder(w).Encode(updatedUser)
 	}
 }

@@ -6,11 +6,10 @@ import (
 	"net/http"
 	"os"
 
-	"pippaothy/internal/auth"
-	"pippaothy/internal/database"
-	"pippaothy/internal/logstream"
-	"pippaothy/internal/redis"
-	"pippaothy/route"
+	"citadel/internal/auth"
+	"citadel/internal/cache"
+	"citadel/internal/database"
+	"citadel/route"
 
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
@@ -18,27 +17,25 @@ import (
 
 var serveCmd = &cobra.Command{
 	Use:   "serve",
-	Short: "Start the Pippaothy HTTP server",
-	Long:  `The serve command starts the Pippaothy HTTP server using the configuration`,
+	Short: "Start the Citadel HTTP server",
+	Long:  `The serve command starts the Citadel HTTP server using the configuration`,
 	Run:   runServe,
 }
 
 func runServe(cmd *cobra.Command, args []string) {
 	ctx := cmd.Context()
 
+	// Set defaults
+	viper.SetDefault("server.port", "8080")
+	viper.SetDefault("database.path", "./citadel.db")
+	viper.SetDefault("redis.host", "localhost")
+	viper.SetDefault("redis.port", "6379")
+	viper.SetDefault("redis.db", 0)
+
 	// Load configuration
 	viper.SetConfigName("config")
 	viper.SetConfigType("json")
 	viper.AddConfigPath(".")
-
-	// Set defaults
-	viper.SetDefault("server.port", "8080")
-	viper.SetDefault("database.host", "localhost")
-	viper.SetDefault("database.port", "5432")
-	viper.SetDefault("redis.host", "localhost")
-	viper.SetDefault("redis.port", "6379")
-	viper.SetDefault("redis.db", 0)
-	viper.SetDefault("logging.file", "/var/log/pippaothy/server.log")
 
 	// Read config file
 	if err := viper.ReadInConfig(); err != nil {
@@ -46,21 +43,11 @@ func runServe(cmd *cobra.Command, args []string) {
 		os.Exit(1)
 	}
 
-	// Initialize logging with file output
-	logFilePath := viper.GetString("logging.file")
-	fileLogger := logstream.NewFileLogger(slog.Default().Handler(), logFilePath)
-	logger := slog.New(fileLogger)
+	// Initialize logger
+	logger := slog.Default()
 
 	// Initialize database
-	dbConfig := database.Config{
-		Host:     viper.GetString("database.host"),
-		Port:     viper.GetString("database.port"),
-		User:     viper.GetString("database.user"),
-		Password: viper.GetString("database.password"),
-		Name:     viper.GetString("database.name"),
-	}
-
-	db, err := database.New(dbConfig)
+	db, err := database.New(viper.GetString("database.path"))
 	if err != nil {
 		logger.Error("Failed to connect to database", "error", err)
 		os.Exit(1)
@@ -68,14 +55,13 @@ func runServe(cmd *cobra.Command, args []string) {
 	defer db.Close()
 
 	// Initialize Redis
-	redisConfig := redis.Config{
+	cacheConfig := cache.Config{
 		Host:     viper.GetString("redis.host"),
 		Port:     viper.GetString("redis.port"),
 		Password: viper.GetString("redis.password"),
 		DB:       viper.GetInt("redis.db"),
 	}
-
-	rdb, err := redis.New(ctx, redisConfig)
+	rdb, err := cache.New(ctx, cacheConfig)
 	if err != nil {
 		logger.Error("Failed to connect to Redis", "error", err)
 		os.Exit(1)
@@ -91,13 +77,13 @@ func runServe(cmd *cobra.Command, args []string) {
 	issuer := auth.NewIssuer(jwtSecret)
 
 	// Initialize routes
-	handler := route.Initialize(route.Config{
-		Db:         db,
-		Redis:      rdb,
-		Issuer:     issuer,
-		Logger:     logger,
-		FileLogger: fileLogger,
-	})
+	routeConfig := route.Config{
+		Db:     db,
+		Redis:  rdb,
+		Issuer: issuer,
+		Logger: logger,
+	}
+	handler := route.Initialize(routeConfig)
 
 	// Create HTTP server
 	serverPort := viper.GetString("server.port")

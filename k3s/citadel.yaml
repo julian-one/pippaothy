@@ -2,22 +2,22 @@
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: pippaothy
+  name: citadel
   labels:
-    app: pippaothy
+    app: citadel
 spec:
   replicas: 1
   selector:
     matchLabels:
-      app: pippaothy
+      app: citadel
   template:
     metadata:
       labels:
-        app: pippaothy
+        app: citadel
     spec:
       containers:
-        - name: pippaothy
-          image: julianone/pippaothy:latest
+        - name: citadel
+          image: julianone/citadel:latest
           ports:
             - containerPort: 8080
           imagePullPolicy: Always
@@ -70,11 +70,11 @@ spec:
 apiVersion: v1
 kind: Service
 metadata:
-  name: pippaothy
+  name: citadel
 spec:
   selector:
-    app: pippaothy
-  type: LoadBalancer
+    app: citadel
+  type: ClusterIP
   ports:
     - protocol: TCP
       port: 80
