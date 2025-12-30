@@ -9,6 +9,7 @@ import (
 	"citadel/internal/auth"
 	"citadel/internal/cache"
 	"citadel/internal/database"
+	"citadel/internal/logging"
 	"citadel/route"
 
 	"github.com/spf13/cobra"
@@ -43,8 +44,26 @@ func runServe(cmd *cobra.Command, args []string) {
 		os.Exit(1)
 	}
 
-	// Initialize logger
-	logger := slog.Default()
+	// Initialize logging broadcaster
+	broadcaster := logging.NewBroadcaster()
+
+	// Initialize log manager with rotation
+	logPath := viper.GetString("logging.file")
+	if logPath == "" {
+		logPath = "./citadel.log"
+	}
+
+	logManager := logging.NewManager(logging.Config{
+		FilePath:   logPath,
+		MaxSizeMB:  100,
+		MaxBackups: 0,
+		Compress:   true,
+	}, broadcaster)
+	defer logManager.Close()
+
+	// Create logger from manager
+	logger := logManager.NewLogger()
+	slog.SetDefault(logger)
 
 	// Initialize database
 	db, err := database.New(viper.GetString("database.path"))
@@ -78,10 +97,12 @@ func runServe(cmd *cobra.Command, args []string) {
 
 	// Initialize routes
 	routeConfig := route.Config{
-		Db:     db,
-		Redis:  rdb,
-		Issuer: issuer,
-		Logger: logger,
+		Db:          db,
+		Redis:       rdb,
+		Issuer:      issuer,
+		Logger:      logger,
+		LogManager:  logManager,
+		Broadcaster: broadcaster,
 	}
 	handler := route.Initialize(routeConfig)
 

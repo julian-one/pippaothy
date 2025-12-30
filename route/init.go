@@ -5,6 +5,7 @@ import (
 	"net/http"
 
 	"citadel/internal/auth"
+	"citadel/internal/logging"
 	"citadel/internal/middleware"
 
 	"github.com/jmoiron/sqlx"
@@ -12,10 +13,12 @@ import (
 )
 
 type Config struct {
-	Db     *sqlx.DB
-	Redis  *redis.Client
-	Issuer *auth.Issuer
-	Logger *slog.Logger
+	Db          *sqlx.DB
+	Redis       *redis.Client
+	Issuer      *auth.Issuer
+	Logger      *slog.Logger
+	LogManager  *logging.Manager
+	Broadcaster *logging.Broadcaster
 }
 
 func Initialize(config Config) http.Handler {
@@ -52,6 +55,11 @@ func Initialize(config Config) http.Handler {
 	mux.Handle("POST /logout", protectedChain.ThenFunc(Logout(config.Redis)))
 	mux.Handle("GET /users", protectedChain.ThenFunc(ListUsers(config.Db)))
 	mux.Handle("PATCH /users/{id}", protectedChain.ThenFunc(UpdateUser(config.Db)))
+
+	// SSE log streaming - protected route
+	mux.Handle("GET /logs/stream", protectedChain.ThenFunc(
+		LogsStream(config.LogManager, config.Broadcaster),
+	))
 
 	return mux
 }
