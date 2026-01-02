@@ -1,12 +1,17 @@
 ---
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: cert-manager
+---
 apiVersion: cert-manager.io/v1
 kind: ClusterIssuer
 metadata:
   name: letsencrypt-prod
 spec:
   acme:
-    email: marsjules.one@gmail.com
     server: https://acme-v02.api.letsencrypt.org/directory
+    email: mjpcr@icloud.com
     privateKeySecretRef:
       name: letsencrypt-prod
     solvers:

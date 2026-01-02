@@ -39,13 +39,13 @@ func LogsStream(manager *logging.Manager, broadcaster *logging.Broadcaster) http
 			return
 		}
 
-		subID := uuid.New().String()
-		log.Info("sse client connected", "subscriber_id", subID)
+		subId := uuid.New().String()
+		log.Info("sse client connected", "subscriber_id", subId)
 
-		sub := broadcaster.Subscribe(subID, filter)
+		sub := broadcaster.Subscribe(subId, filter)
 		defer func() {
-			broadcaster.Unsubscribe(subID)
-			log.Info("sse client disconnected", "subscriber_id", subID)
+			broadcaster.Unsubscribe(subId)
+			log.Info("sse client disconnected", "subscriber_id", subId)
 		}()
 
 		if shouldReadHistorical(filter) {
@@ -78,7 +78,7 @@ func LogsStream(manager *logging.Manager, broadcaster *logging.Broadcaster) http
 			})
 		}
 
-		log.Info("switching to live streaming", "subscriber_id", subID)
+		log.Info("switching to live streaming", "subscriber_id", subId)
 
 		keepalive := time.NewTicker(30 * time.Second)
 		defer keepalive.Stop()
@@ -109,7 +109,7 @@ func parseLogFilter(r *http.Request) (*logging.Filter, error) {
 
 	var levels []string
 	if levelParam := query.Get("level"); levelParam != "" {
-		for _, l := range strings.Split(levelParam, ",") {
+		for l := range strings.SplitSeq(levelParam, ",") {
 			upper := strings.ToUpper(strings.TrimSpace(l))
 			if upper != "DEBUG" && upper != "INFO" && upper != "WARN" && upper != "ERROR" {
 				return nil, fmt.Errorf("invalid log level: %s", l)
@@ -145,7 +145,12 @@ func shouldReadHistorical(filter *logging.Filter) bool {
 	return filter.StartTime != nil || filter.EndTime == nil
 }
 
-func sendSSEEvent(w http.ResponseWriter, flusher http.Flusher, event string, data interface{}) error {
+func sendSSEEvent(
+	w http.ResponseWriter,
+	flusher http.Flusher,
+	event string,
+	data any,
+) error {
 	jsonData, err := json.Marshal(data)
 	if err != nil {
 		return err

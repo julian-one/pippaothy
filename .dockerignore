@@ -1,0 +1,22 @@
+.git
+.gitignore
+.dockerignore
+Dockerfile
+README.md
+LICENSE
+
+# K8s configs
+k3s/
+
+# Local config and data
+config.json
+*.db
+*.log
+
+# IDE
+.idea/
+.vscode/
+*.swp
+
+# Build artifacts
+citadel

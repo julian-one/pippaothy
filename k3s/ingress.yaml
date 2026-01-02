@@ -2,13 +2,20 @@
 apiVersion: networking.k8s.io/v1
 kind: Ingress
 metadata:
-  name: pippaothy-ingress
+  name: citadel-ingress
   annotations:
     cert-manager.io/cluster-issuer: letsencrypt-prod
+    nginx.ingress.kubernetes.io/ssl-redirect: "true"
+    nginx.ingress.kubernetes.io/force-ssl-redirect: "true"
 spec:
   ingressClassName: nginx
+  tls:
+    - hosts:
+        - jroberts.info
+        - api.jroberts.info
+      secretName: jroberts-tls
   rules:
-    - host: pippaothy.com
+    - host: jroberts.info
       http:
         paths:
           - path: /
@@ -18,7 +25,7 @@ spec:
                 name: shire
                 port:
                   number: 80
-    - host: api.pippaothy.com
+    - host: api.jroberts.info
       http:
         paths:
           - path: /
@@ -28,8 +35,3 @@ spec:
                 name: citadel
                 port:
                   number: 80
-  tls:
-    - hosts:
-        - pippaothy.com
-        - api.pippaothy.com
-      secretName: pippaothy-tls
